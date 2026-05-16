@@ -251,7 +251,7 @@ Acceso en `/instructor/login`. Incluye enlace **← Volver al inicio** para regr
 ### Evaluaciones
 - Crear/editar evaluaciones con banco de preguntas (subir `.json` o usar el editor visual)
 - Configurar: tiempo límite, % para aprobar, **máx. intentos**, distribución de tipos de pregunta, **umbrales de alerta antiplagio** (Bajo / Medio / Alto — por defecto medio = 2, alto = 3)
-- **Selectores de competencia y RA**: desplegables con competencias y resultados de aprendizaje usados anteriormente — al seleccionar uno rellena automáticamente código y nombre
+- **Selector de competencia**: desplegable con pares competencia + RA usados anteriormente — al seleccionar uno rellena automáticamente los cuatro campos (código competencia, nombre, código RA y resultado de aprendizaje)
 - **Editor de preguntas** (`/instructor/evaluaciones/[id]/preguntas`): drag-reorder, crear/editar/eliminar preguntas de los 3 tipos
 - **Descargar banco de preguntas**: botón en la sección "Banco de preguntas" al editar y en el editor de preguntas — descarga el banco actual en formato JSON reutilizable
 - **Enviar correo de convocatoria** (botón 🔔 en tabla de evaluaciones): envía el correo de convocatoria **al instructor** para verificar cómo se ve; campo de mensaje personalizado opcional
