@@ -86,11 +86,15 @@ export async function POST(request: NextRequest) {
       const umbralAltoConfig = (evaluacion.config as any)?.umbralAntiplagio?.alto ?? 3;
       const anuladaComputada = (incidenciasAntiplagio ?? 0) >= umbralAltoConfig;
 
-      // 2. Filtrar solo las preguntas que fueron respondidas
+      // 2. Filtrar solo las preguntas que fueron respondidas y normalizar campos
       const idsRespondidos = Object.keys(respuestasUsuario);
-      const preguntasEvaluadas = bancoCompleto.filter((q) =>
-        idsRespondidos.includes(q.id.toString()),
-      );
+      const preguntasEvaluadas = bancoCompleto
+        .filter((q) => idsRespondidos.includes(q.id.toString()))
+        .map((q: any) => ({
+          ...q,
+          id: String(q.id),
+          enunciado: q.enunciado ?? q.texto ?? "",
+        }));
 
       // 2b. Si la evaluación fue anulada por antiplagio, forzar puntaje 0
       const resultado = anuladaComputada

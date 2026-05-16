@@ -52,7 +52,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
             { id: "c", texto: "Administrar direcciones IP" },
             { id: "d", texto: "Gestionar contraseñas" },
           ],
-          respuestaCorrecta: "a",
+          respuestaCorrecta: ["a"],
           retroalimentacion:
             "El modelo OSI define un marco estándar para las comunicaciones en red dividido en 7 capas.",
         },

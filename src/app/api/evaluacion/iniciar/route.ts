@@ -33,6 +33,12 @@ function prepareQuestionsForClient(
 
   return seleccionadas.map((p: any) => {
     const preguntaCliente = JSON.parse(JSON.stringify(p));
+    // Normalize: support both 'texto' (external JSON) and 'enunciado' (internal) as question text
+    if (!preguntaCliente.enunciado && preguntaCliente.texto) {
+      preguntaCliente.enunciado = preguntaCliente.texto;
+    }
+    // Normalize: ensure id is always a string so client-side keying is consistent
+    preguntaCliente.id = String(preguntaCliente.id);
     delete preguntaCliente.respuestaCorrecta;
     delete preguntaCliente.retroalimentacion;
 
