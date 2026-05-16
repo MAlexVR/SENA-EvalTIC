@@ -305,6 +305,124 @@ En el paso 4 se muestra el mensaje de intentos agotados y, si existe un resultad
 
 ---
 
+## Formatos de Importación
+
+### Banco de Preguntas (`.json`)
+
+El banco se sube al crear o editar una evaluación. El archivo debe ser JSON con la siguiente estructura raíz:
+
+```json
+{ "preguntas": [ ... ] }
+```
+
+#### Campos comunes
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `id` | `string` o `number` | Sí | Identificador único dentro del banco. Se normaliza a string internamente. |
+| `tipo` | `string` | Sí | `"seleccion_unica"`, `"seleccion_multiple"` o `"emparejamiento"` |
+| `texto` | `string` | Sí | Enunciado de la pregunta. También se acepta `"enunciado"` como alias. |
+| `respuestaCorrecta` | `string[]` o `string` | Sí | IDs de las opciones correctas. Se acepta tanto array como string simple. |
+| `retroalimentacion` | `string` | No | Explicación que se muestra al finalizar la evaluación. |
+| `tema` | `string` | No | Campo informativo; ignorado por el motor de calificación. |
+
+#### `seleccion_unica` — una sola respuesta correcta
+
+```json
+{
+  "id": "p1",
+  "tipo": "seleccion_unica",
+  "texto": "¿Cuál es la unidad de frecuencia?",
+  "opciones": [
+    { "id": "a", "texto": "Voltio (V)" },
+    { "id": "b", "texto": "Amperio (A)" },
+    { "id": "c", "texto": "Hertz (Hz)" },
+    { "id": "d", "texto": "Ohmio (Ω)" }
+  ],
+  "respuestaCorrecta": ["c"],
+  "retroalimentacion": "La frecuencia se mide en Hertz (Hz)."
+}
+```
+
+#### `seleccion_multiple` — una o más respuestas correctas
+
+```json
+{
+  "id": "p2",
+  "tipo": "seleccion_multiple",
+  "texto": "¿Cuáles son protocolos de capa de transporte?",
+  "opciones": [
+    { "id": "a", "texto": "TCP" },
+    { "id": "b", "texto": "HTTP" },
+    { "id": "c", "texto": "UDP" },
+    { "id": "d", "texto": "FTP" }
+  ],
+  "respuestaCorrecta": ["a", "c"],
+  "retroalimentacion": "TCP y UDP operan en la capa de transporte."
+}
+```
+
+> El puntaje es proporcional: seleccionar 2 de 2 correctas da crédito completo; 1 de 2 da crédito parcial (0.5). No hay penalización por opciones incorrectas seleccionadas.
+
+#### `emparejamiento` — relacionar columna izquierda con derecha
+
+```json
+{
+  "id": "p3",
+  "tipo": "emparejamiento",
+  "texto": "Relaciona cada capa OSI con su función:",
+  "pares": [
+    { "izquierda": "Capa Física",      "derecha": "Transmisión de bits" },
+    { "izquierda": "Capa de Red",      "derecha": "Enrutamiento de paquetes" },
+    { "izquierda": "Capa de Transporte", "derecha": "Control de flujo extremo a extremo" }
+  ],
+  "retroalimentacion": "Cada capa OSI tiene una responsabilidad definida."
+}
+```
+
+> No lleva `opciones` ni `respuestaCorrecta` — la respuesta correcta se deriva del orden de `pares`. La columna derecha se aleatoriza al presentar la evaluación. El puntaje es proporcional a los pares emparejados correctamente.
+
+#### Reglas del banco
+
+- Los `id` de preguntas deben ser únicos dentro del archivo.
+- Los `id` de opciones (`"a"`, `"b"`…) deben ser únicos dentro de cada pregunta; pueden repetirse entre preguntas.
+- El banco puede tener más preguntas que las que se presentan en la evaluación — la distribución (cuántas de cada tipo) se configura al crear la evaluación y la selección es aleatoria.
+- Tamaño máximo del archivo: **5 MB**.
+- La plantilla descargable (`Evaluaciones → Descargar plantilla preguntas`) incluye un ejemplo de cada tipo.
+
+---
+
+### Listado de Aprendices (`.xlsx`)
+
+El listado se importa en el detalle de una ficha (**Tab Aprendices → Importar desde Excel**). El archivo puede ser una exportación directa de **SOFIA Plus** o una plantilla propia.
+
+#### Columnas requeridas
+
+| Columna | Descripción | Ejemplo |
+|---|---|---|
+| `tipoDocumento` | Tipo de documento de identidad | `CC`, `TI`, `CE` |
+| `cedula` | Número de documento (sin puntos ni espacios) | `1020304050` |
+| `nombres` | Nombres del aprendiz | `Juan Carlos` |
+| `apellidos` | Apellidos del aprendiz | `Pérez Gómez` |
+
+#### Columnas opcionales
+
+| Columna | Descripción | Notas |
+|---|---|---|
+| `email` | Correo (cualquier tipo) | Alias genérico — se usa si no hay columnas específicas |
+| `Correo Institucional` | Correo `@soy.sena.edu.co` | Tiene prioridad sobre `email` para notificaciones institucionales |
+| `Correo Personal` | Correo personal del aprendiz | Se usa para enviar el resultado al finalizar la evaluación |
+
+#### Compatibilidad con SOFIA Plus
+
+El importador detecta automáticamente la fila de encabezados buscando en las **primeras 20 filas** la que contenga al menos 2 palabras clave de: `cédula`, `nombres`, `apellidos`, `tipo`, `documento`. Esto permite pegar directamente la exportación de SOFIA Plus sin modificar el archivo.
+
+> Si una columna no existe en el archivo, el campo se guarda vacío — no causa error. La cédula es el único campo estrictamente requerido para identificar al aprendiz.
+
+La plantilla descargable (`Detalle de ficha → Descargar plantilla aprendices`) incluye una fila de ejemplo con el formato esperado.
+
+---
+
 ## Roles y Seguridad
 
 | Rol | Acceso |
