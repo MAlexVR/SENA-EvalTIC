@@ -6,7 +6,7 @@ import { requireInstructor } from "@/lib/auth-utils";
 
 const crearEvaluacionSchema = z.object({
   nombre: z.string().min(3, "Nombre muy corto").max(200),
-  descripcion: z.string().max(500).optional(),
+  descripcion: z.string().max(500).optional().nullable(),
   competencia: z.string().min(3, "Competencia muy corta").max(300),
   codigoCompetencia: z.string().min(1, "Código de competencia requerido").max(20),
   resultadoAprendizaje: z.string().min(3, "Resultado de aprendizaje muy corto").max(500),
