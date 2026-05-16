@@ -44,6 +44,10 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   const preguntasCliente = seleccionadas.map((p: any) => {
     const preguntaCliente = JSON.parse(JSON.stringify(p));
+    if (!preguntaCliente.enunciado && preguntaCliente.texto) {
+      preguntaCliente.enunciado = preguntaCliente.texto;
+    }
+    preguntaCliente.id = String(preguntaCliente.id);
     delete preguntaCliente.respuestaCorrecta;
     delete preguntaCliente.retroalimentacion;
 

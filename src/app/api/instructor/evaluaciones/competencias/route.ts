@@ -16,27 +16,27 @@ export async function GET() {
     },
   });
 
-  // Deduplicar por código
-  const competenciasMap = new Map<string, { codigo: string; nombre: string }>();
-  const resultadosMap   = new Map<string, { codigo: string; nombre: string }>();
+  // Deduplicar pares únicos (competencia + RA) preservando la asociación
+  const paresMap = new Map<string, {
+    codigoCompetencia: string;
+    competencia: string;
+    codigoRA: string;
+    resultadoAprendizaje: string;
+  }>();
 
   for (const ev of evaluaciones) {
-    if (ev.codigoCompetencia && ev.competencia) {
-      competenciasMap.set(ev.codigoCompetencia, {
-        codigo: ev.codigoCompetencia,
-        nombre: ev.competencia,
-      });
-    }
-    if (ev.codigoRA && ev.resultadoAprendizaje) {
-      resultadosMap.set(ev.codigoRA, {
-        codigo: ev.codigoRA,
-        nombre: ev.resultadoAprendizaje,
+    if (ev.codigoCompetencia && ev.competencia && ev.codigoRA && ev.resultadoAprendizaje) {
+      const key = `${ev.codigoCompetencia}::${ev.codigoRA}`;
+      paresMap.set(key, {
+        codigoCompetencia: ev.codigoCompetencia,
+        competencia: ev.competencia,
+        codigoRA: ev.codigoRA,
+        resultadoAprendizaje: ev.resultadoAprendizaje,
       });
     }
   }
 
   return NextResponse.json({
-    competencias: Array.from(competenciasMap.values()),
-    resultados:   Array.from(resultadosMap.values()),
+    pares: Array.from(paresMap.values()),
   });
 }
