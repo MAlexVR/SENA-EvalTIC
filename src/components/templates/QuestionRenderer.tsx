@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { OrdenamientoRenderer } from "@/components/templates/questions/OrdenamientoRenderer";
 
 export function QuestionRenderer() {
   const {
@@ -63,6 +64,13 @@ export function QuestionRenderer() {
     responderPregunta({
       preguntaId: qId,
       valorNumerico: isNaN(parsed) ? undefined : parsed,
+    });
+  };
+
+  const handleOrdenamiento = (newOrder: string[]) => {
+    responderPregunta({
+      preguntaId: qId,
+      ordenamiento: newOrder,
     });
   };
 
@@ -212,6 +220,24 @@ export function QuestionRenderer() {
                 </span>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Renderizado de Ordenamiento */}
+        {pregunta.tipo === "ordenamiento" && (
+          <div className="flex flex-col gap-3">
+            {pregunta.instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {pregunta.instruccion}
+              </p>
+            )}
+            <p className="text-xs text-sena-gray-dark/50">
+              Arrastra los elementos para ordenarlos correctamente.
+            </p>
+            <OrdenamientoRenderer
+              elementos={(pregunta as any).elementos ?? []}
+              onChange={handleOrdenamiento}
+            />
           </div>
         )}
 

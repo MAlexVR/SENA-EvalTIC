@@ -137,5 +137,31 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
   }
 
+  // ── Plantilla ordenamiento (.json) ───────────────────────────────────────
+  if (type === "ordenamiento") {
+    const template = {
+      tipo: "ordenamiento",
+      instruccion: "Ordena los pasos del método científico de forma correcta.",
+      elementos: [
+        { id: "e1", texto: "Observación del fenómeno" },
+        { id: "e2", texto: "Formulación de hipótesis" },
+        { id: "e3", texto: "Experimentación" },
+        { id: "e4", texto: "Análisis de resultados" },
+        { id: "e5", texto: "Conclusión" },
+      ],
+      respuestaCorrecta: ["e1", "e2", "e3", "e4", "e5"],
+      retroalimentacion:
+        "El método científico sigue este orden lógico de pasos.",
+    };
+
+    return new NextResponse(JSON.stringify(template, null, 2), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition":
+          'attachment; filename="plantilla-ordenamiento.json"',
+      },
+    });
+  }
+
   return NextResponse.json({ error: "Tipo de plantilla no válido" }, { status: 400 });
 }

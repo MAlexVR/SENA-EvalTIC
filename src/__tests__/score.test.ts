@@ -39,6 +39,47 @@ describe("calcularCreditoPregunta — numerica", () => {
   });
 });
 
+describe("calcularCreditoPregunta — ordenamiento", () => {
+  const preguntaBase = {
+    id: "ord1",
+    tipo: "ordenamiento",
+    instruccion: "Ordena los pasos del método científico.",
+    elementos: [
+      { id: "e1", texto: "Observación" },
+      { id: "e2", texto: "Hipótesis" },
+      { id: "e3", texto: "Experimentación" },
+      { id: "e4", texto: "Conclusión" },
+    ],
+    respuestaCorrecta: ["e1", "e2", "e3", "e4"],
+  };
+
+  it("retorna 1 cuando todas las posiciones son correctas", () => {
+    const respuesta = { preguntaId: "ord1", ordenamiento: ["e1", "e2", "e3", "e4"] };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(1);
+  });
+
+  it("retorna 0.5 cuando la mitad de posiciones son correctas", () => {
+    // Positions 0 and 3 match (e1 and e4); positions 1 and 2 swapped
+    const respuesta = { preguntaId: "ord1", ordenamiento: ["e1", "e3", "e2", "e4"] };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0.5);
+  });
+
+  it("retorna 0 cuando ninguna posición es correcta", () => {
+    const respuesta = { preguntaId: "ord1", ordenamiento: ["e4", "e3", "e2", "e1"] };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  });
+
+  it("retorna 0 cuando el ordenamiento está vacío (sin respuesta)", () => {
+    const respuesta = { preguntaId: "ord1", ordenamiento: [] };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  });
+
+  it("retorna 0 cuando respuestaApp no tiene campo ordenamiento", () => {
+    const respuesta = { preguntaId: "ord1" };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  });
+});
+
 describe("calcularCreditoPregunta — verdadero_falso", () => {
   const pregunta = {
     id: "vf1",

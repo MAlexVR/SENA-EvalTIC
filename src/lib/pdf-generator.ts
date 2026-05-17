@@ -788,6 +788,93 @@ export async function generatePDF(
           ? `${respCorrectaNum} +/- ${tolerancia}${unitSuffix}`
           : `${respCorrectaNum}${unitSuffix}`;
       }
+    } else if (q.tipo === "ordenamiento" && ua) {
+      const elementos: Array<{ id: string; texto: string }> = (q as any).elementos ?? [];
+      const idToTexto = Object.fromEntries(elementos.map((e) => [e.id, e.texto]));
+      const respuestaCorrecta: string[] = (q as any).respuestaCorrecta ?? [];
+      const studentOrder: string[] = ua.ordenamiento ?? [];
+
+      const tableBody = respuestaCorrecta.map((correctId, i) => {
+        const studentId = studentOrder[i] ?? "";
+        const isOk = studentId === correctId;
+        return [
+          String(i + 1),
+          n((idToTexto[studentId] ?? studentId) || "-"),
+          isOk ? "1" : "0",
+          n(idToTexto[correctId] ?? correctId),
+        ];
+      });
+
+      if (isCorrect === "Parcial") {
+        const aciertos = respuestaCorrecta.filter((id, i) => studentOrder[i] === id).length;
+        creditoInfo = `${aciertos} de ${respuestaCorrecta.length} posiciones correctas`;
+      }
+
+      const ordEstimate = 10 + respuestaCorrecta.length * 9 + 6;
+      ctx.y = checkPage(ctx, ordEstimate);
+      autoTable(doc, {
+        startY: ctx.y,
+        head: [["Pos.", "Su orden", "Val.", "Orden correcto"]],
+        body: tableBody,
+        theme: "grid",
+        headStyles: {
+          fillColor: SENA_BLUE,
+          textColor: 255,
+          fontSize: 8,
+          halign: "center",
+          ...tbl({}),
+        },
+        bodyStyles: { fontSize: 8, ...tbl({}) },
+        columnStyles: {
+          0: { cellWidth: 12, halign: "center" },
+          1: { cellWidth: (CONTENT_W - 4 - 12 - 10) * 0.5 },
+          2: { cellWidth: 10, halign: "center" },
+          3: { cellWidth: (CONTENT_W - 4 - 12 - 10) * 0.5 },
+        },
+        margin: { top: HEADER_BOTTOM, left: MARGIN, right: MARGIN, bottom: 22 },
+        pageBreak: "auto",
+        showHead: "everyPage",
+        didParseCell: (data) => {
+          if (data.section !== "body") return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          if (data.column.index === 2) {
+            data.cell.text = [""];
+            data.cell.styles.fillColor = isOK ? SENA_GREEN : RED;
+          }
+          if (data.column.index === 1) {
+            data.cell.styles.textColor = isOK ? SENA_GREEN : RED;
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 2) return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          const cx = data.cell.x + data.cell.width / 2;
+          const cy = data.cell.y + data.cell.height / 2;
+          doc.setFillColor(255, 255, 255);
+          doc.circle(cx, cy, 2.2, "F");
+          doc.setLineWidth(0.4);
+          if (isOK) {
+            doc.setDrawColor(SENA_GREEN[0], SENA_GREEN[1], SENA_GREEN[2]);
+            doc.line(cx - 1, cy, cx - 0.2, cy + 1.2);
+            doc.line(cx - 0.2, cy + 1.2, cx + 1.2, cy - 1);
+          } else {
+            doc.setDrawColor(RED[0], RED[1], RED[2]);
+            doc.line(cx - 1, cy - 1, cx + 1, cy + 1);
+            doc.line(cx + 1, cy - 1, cx - 1, cy + 1);
+          }
+          tc(doc, BLACK);
+        },
+        didDrawPage: (data) => {
+          addFooter(doc, font);
+          if (data.pageNumber > 1) {
+            ctx.y = addHeader(doc, dateStr, font);
+            addWatermark(doc, watermarkText);
+          }
+        },
+      });
+      ctx.y = (doc as unknown as DocWithTable).lastAutoTable.finalY + 3;
     } else if (q.tipo === "emparejamiento" && ua) {
       const pares = q.pares || [];
       const emps = ua.emparejamientos || {};

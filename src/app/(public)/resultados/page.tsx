@@ -311,6 +311,43 @@ export default function ResultadosPage() {
       };
     }
 
+    if (q.tipo === "ordenamiento") {
+      const elementos: { id: string; texto: string }[] = q.elementos ?? [];
+      const idToTexto = Object.fromEntries(elementos.map((e: any) => [e.id, e.texto]));
+      const respuestaCorrecta: string[] = q.respuestaCorrecta ?? [];
+      const studentOrder: string[] = userAnswer.ordenamiento ?? [];
+
+      const aciertos = respuestaCorrecta.filter(
+        (id, i) => studentOrder[i] === id,
+      ).length;
+
+      const userText =
+        studentOrder.length > 0
+          ? studentOrder.map((id, i) => {
+              const isOk = respuestaCorrecta[i] === id;
+              return `${i + 1}. ${idToTexto[id] ?? id}${isOk ? " ✓" : " ✗"}`;
+            }).join(" | ")
+          : "Sin respuesta";
+
+      const correctText =
+        status !== "correcta"
+          ? respuestaCorrecta.map((id, i) => `${i + 1}. ${idToTexto[id] ?? id}`).join(" | ")
+          : "";
+
+      const creditoInfo =
+        status === "parcial"
+          ? `${aciertos} de ${respuestaCorrecta.length} posiciones correctas`
+          : null;
+
+      return {
+        status,
+        userText,
+        correctText,
+        creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
     return {
       status: "sin_responder" as const,
       userText: "-",

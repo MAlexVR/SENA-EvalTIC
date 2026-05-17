@@ -66,6 +66,17 @@ export function calcularCreditoPregunta(
     return Math.abs(valorNumerico - respuestaCorrecta) <= tolerancia ? 1 : 0;
   }
 
+  if (pregunta.tipo === "ordenamiento") {
+    const respuestaCorrecta: string[] = pregunta.respuestaCorrecta ?? [];
+    const studentOrder: string[] = respuestaApp.ordenamiento ?? [];
+    if (respuestaCorrecta.length === 0) return 0;
+    let aciertos = 0;
+    for (let i = 0; i < respuestaCorrecta.length; i++) {
+      if (studentOrder[i] === respuestaCorrecta[i]) aciertos++;
+    }
+    return aciertos / respuestaCorrecta.length;
+  }
+
   return 0;
 }
 

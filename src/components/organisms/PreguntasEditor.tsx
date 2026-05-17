@@ -53,6 +53,20 @@ function newBlankPregunta(tipo: TipoPregunta): Pregunta {
   if (tipo === "numerica") {
     return { ...base, tipo: "numerica", respuestaCorrecta: 0, tolerancia: 0, unidad: "" } as unknown as Pregunta;
   }
+  if (tipo === "ordenamiento") {
+    const e1 = genId();
+    const e2 = genId();
+    return {
+      ...base,
+      tipo: "ordenamiento",
+      instruccion: "",
+      elementos: [
+        { id: e1, texto: "" },
+        { id: e2, texto: "" },
+      ],
+      respuestaCorrecta: [e1, e2],
+    } as unknown as Pregunta;
+  }
   const opciones: Opcion[] = [
     { id: "a", texto: "" },
     { id: "b", texto: "" },
@@ -209,6 +223,11 @@ function EditPreguntaDialog({
         return "Debe ingresar la respuesta correcta.";
       if (num.tolerancia === undefined || num.tolerancia === null || isNaN(num.tolerancia) || num.tolerancia < 0)
         return "La tolerancia debe ser un número mayor o igual a 0.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "ordenamiento") {
+      const ord = draft as unknown as { elementos: { id: string; texto: string }[]; respuestaCorrecta: string[] };
+      if (!ord.elementos || ord.elementos.length < 2) return "Se requieren al menos 2 elementos.";
+      if (ord.elementos.some((e) => !e.texto.trim())) return "Todos los elementos deben tener texto.";
     } else {
       const opts = draft.opciones;
       if (opts.length < 2) return "Se requieren al menos 2 opciones.";
@@ -288,6 +307,7 @@ function EditPreguntaDialog({
               <option value="emparejamiento">Emparejamiento</option>
               <option value="verdadero_falso">Verdadero / Falso</option>
               <option value="numerica">Numérica</option>
+              <option value="ordenamiento">Ordenamiento</option>
             </select>
           </div>
 
@@ -514,6 +534,141 @@ function EditPreguntaDialog({
                     }
                     placeholder="m/s"
                   />
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Ordenamiento ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "ordenamiento" && (() => {
+            const draftOrd = draft as unknown as {
+              id: string;
+              instruccion?: string;
+              elementos: { id: string; texto: string }[];
+              respuestaCorrecta: string[];
+            };
+
+            const addElemento = () => {
+              const newId = genId();
+              const newElementos = [...draftOrd.elementos, { id: newId, texto: "" }];
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, elementos: newElementos, respuestaCorrecta: newElementos.map((e) => e.id) } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const updateElementoTexto = (idx: number, texto: string) => {
+              const newElementos = draftOrd.elementos.map((e, i) =>
+                i === idx ? { ...e, texto } : e
+              );
+              setDraft((prev) =>
+                prev ? ({ ...prev, elementos: newElementos } as unknown as Pregunta) : prev
+              );
+            };
+
+            const removeElemento = (idx: number) => {
+              const newElementos = draftOrd.elementos.filter((_, i) => i !== idx);
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, elementos: newElementos, respuestaCorrecta: newElementos.map((e) => e.id) } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const moveElemento = (fromIdx: number, toIdx: number) => {
+              const newElementos = [...draftOrd.elementos];
+              const [moved] = newElementos.splice(fromIdx, 1);
+              newElementos.splice(toIdx, 0, moved);
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, elementos: newElementos, respuestaCorrecta: newElementos.map((e) => e.id) } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            return (
+              <div className="space-y-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción (opcional)</Label>
+                  <textarea
+                    className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={draftOrd.instruccion ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) =>
+                        prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev
+                      )
+                    }
+                    placeholder="Ej: Ordena los pasos del proceso de forma correcta."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-sena-blue">
+                    Elementos y orden correcto *
+                  </Label>
+                  <p className="text-[10px] text-sena-gray-dark/50">
+                    Agrega los elementos. El orden de la lista define la respuesta correcta. Usa los botones ↑↓ para reordenar.
+                  </p>
+                  {draftOrd.elementos.map((elem, idx) => (
+                    <div key={elem.id} className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-sena-gray-dark/40 w-5 text-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <Input
+                        className="h-8 text-sm flex-1"
+                        value={elem.texto}
+                        onChange={(e) => updateElementoTexto(idx, e.target.value)}
+                        placeholder={`Elemento ${idx + 1}`}
+                      />
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-6 text-sena-gray-dark/40 hover:text-sena-blue"
+                          onClick={() => idx > 0 && moveElemento(idx, idx - 1)}
+                          disabled={idx === 0}
+                          aria-label="Mover arriba"
+                        >
+                          ↑
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-6 text-sena-gray-dark/40 hover:text-sena-blue"
+                          onClick={() => idx < draftOrd.elementos.length - 1 && moveElemento(idx, idx + 1)}
+                          disabled={idx === draftOrd.elementos.length - 1}
+                          aria-label="Mover abajo"
+                        >
+                          ↓
+                        </Button>
+                      </div>
+                      {draftOrd.elementos.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:bg-red-50 shrink-0"
+                          onClick={() => removeElemento(idx)}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-sena-green hover:text-sena-green-dark h-7"
+                    onClick={addElemento}
+                  >
+                    <Plus size={12} />
+                    Agregar elemento
+                  </Button>
                 </div>
               </div>
             );
