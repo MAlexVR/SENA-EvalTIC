@@ -30,6 +30,15 @@ interface EnviarCorreoResultadoParams {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -77,11 +86,11 @@ function buildHtmlInstructor(params: {
         <h2 style="color: #00324D; border-bottom: 2px solid #39A900; padding-bottom: 5px;">Datos del Aprendiz</h2>
         <table style="width: 100%; border-collapse: collapse;">
           <tbody>
-            <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Nombre:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${nombres} ${apellidos}</td></tr>
-            <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Documento:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${tipoDocumento} ${cedula}</td></tr>
-            <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Correo:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${email}</td></tr>
-            <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Ficha:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${fichaNumero}</td></tr>
-            <tr><td style="padding: 8px 0;"><strong>Programa:</strong></td><td style="padding: 8px 0;">${fichaPrograma}</td></tr>
+            <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Nombre:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${escapeHtml(nombres)} ${escapeHtml(apellidos)}</td></tr>
+            <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Documento:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${escapeHtml(tipoDocumento)} ${escapeHtml(cedula)}</td></tr>
+            <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Correo:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${escapeHtml(email)}</td></tr>
+            <tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Ficha:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${escapeHtml(fichaNumero)}</td></tr>
+            <tr><td style="padding: 8px 0;"><strong>Programa:</strong></td><td style="padding: 8px 0;">${escapeHtml(fichaPrograma)}</td></tr>
           </tbody>
         </table>
         <h2 style="color: #00324D; border-bottom: 2px solid #39A900; padding-bottom: 5px; margin-top: 30px;">Resultados</h2>
@@ -140,7 +149,7 @@ function buildHtmlAprendiz(params: {
       </div>
       <div style="padding: 24px; background-color: #fafafa;">
         <p style="font-size: 15px; color: #374151; margin-top: 0;">
-          Hola <strong>${nombres}</strong>, a continuación encontrarás el resumen de tu evaluación.
+          Hola <strong>${escapeHtml(nombres)}</strong>, a continuación encontrarás el resumen de tu evaluación.
         </p>
 
         <div style="text-align: center; margin: 20px 0; padding: 24px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
@@ -152,9 +161,9 @@ function buildHtmlAprendiz(params: {
         <h2 style="color: #00324D; border-bottom: 2px solid #39A900; padding-bottom: 5px; font-size: 15px;">Detalles</h2>
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
           <tbody>
-            <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280; width: 45%;">Evaluación</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; font-weight: 500;">${evaluacionNombre}</td></tr>
-            <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280;">Ficha</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6;">${fichaNumero} — ${fichaPrograma}</td></tr>
-            <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280;">Documento</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6;">${tipoDocumento} ${cedula}</td></tr>
+            <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280; width: 45%;">Evaluación</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; font-weight: 500;">${escapeHtml(evaluacionNombre)}</td></tr>
+            <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280;">Ficha</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6;">${escapeHtml(fichaNumero)} — ${escapeHtml(fichaPrograma)}</td></tr>
+            <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280;">Documento</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6;">${escapeHtml(tipoDocumento)} ${escapeHtml(cedula)}</td></tr>
             <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280;">Respuestas correctas</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6;">${preguntasCorrectas} de ${totalPreguntas}</td></tr>
             <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280;">Tiempo utilizado</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6;">${formatTime(tiempoUsado)}</td></tr>
             <tr><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6; color: #6b7280;">Fecha</td><td style="padding: 7px 0; border-bottom: 1px solid #f3f4f6;">${fecha}</td></tr>

@@ -188,72 +188,52 @@ describe("calcularCreditoPregunta — clasificacion", () => {
 });
 
 describe("calcularCreditoPregunta — hotspot", () => {
-  const preguntaBase = {
+  // Modelo actual: punto único + radio de tolerancia (distancia euclidiana, coordenadas 0-100)
+  const pregunta = {
     id: "hs1",
     tipo: "hotspot",
-    instruccion: "Haz clic en la mitocondria.",
-    imagen: "https://example.com/cell.jpg",
-    imagenAlt: "Célula eucariota",
-    zonas: [
-      { id: "z1", etiqueta: "Mitocondria", forma: "circle", coordenadas: [120, 80, 30], esCorrecta: true },
-      { id: "z2", etiqueta: "Núcleo", forma: "rect", coordenadas: [200, 150, 80, 60], esCorrecta: false },
-      { id: "z3", etiqueta: "Vacuola", forma: "circle", coordenadas: [300, 200, 40], esCorrecta: false },
-    ],
-    respuestaCorrecta: ["z1"],
+    instruccion: "Haz clic sobre el router en el diagrama OSI.",
+    imagen: "https://example.com/red.jpg",
+    imagenAlt: "Diagrama de red en estrella",
+    zonaCorrecta: { cx: 50, cy: 20, radio: 10 },
   };
 
-  const preguntaMultiple = {
-    id: "hs2",
-    tipo: "hotspot",
-    instruccion: "Selecciona todos los orgánulos con membrana.",
-    imagen: "https://example.com/cell.jpg",
-    imagenAlt: "Célula eucariota",
-    zonas: [
-      { id: "z1", etiqueta: "Mitocondria", forma: "circle", coordenadas: [120, 80, 30], esCorrecta: true },
-      { id: "z2", etiqueta: "Núcleo", forma: "rect", coordenadas: [200, 150, 80, 60], esCorrecta: true },
-      { id: "z3", etiqueta: "Ribosoma", forma: "circle", coordenadas: [50, 50, 10], esCorrecta: false },
-      { id: "z4", etiqueta: "Cloroplasto", forma: "rect", coordenadas: [280, 100, 60, 40], esCorrecta: true },
-      { id: "z5", etiqueta: "Vacuola", forma: "circle", coordenadas: [300, 200, 40], esCorrecta: false },
-    ],
-    respuestaCorrecta: ["z1", "z2", "z4"],
-  };
-
-  it("retorna 1 cuando la zona correcta es seleccionada (zona única)", () => {
-    const respuesta = { preguntaId: "hs1", respuestaIds: ["z1"] };
-    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(1);
+  it("retorna 1 cuando el clic está exactamente en el centro", () => {
+    const respuesta = { preguntaId: "hs1", hotspotClick: { x: 50, y: 20 } };
+    expect(calcularCreditoPregunta(pregunta, respuesta)).toBe(1);
   });
 
-  it("retorna 0 cuando la zona correcta NO es seleccionada (zona única)", () => {
-    const respuesta = { preguntaId: "hs1", respuestaIds: ["z2"] };
-    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  it("retorna 1 cuando el clic está dentro del radio de tolerancia", () => {
+    // sqrt((52-50)² + (22-20)²) = sqrt(8) ≈ 2.83 < 10
+    const respuesta = { preguntaId: "hs1", hotspotClick: { x: 52, y: 22 } };
+    expect(calcularCreditoPregunta(pregunta, respuesta)).toBe(1);
   });
 
-  it("retorna 0 cuando no hay respuesta (respuestaIds vacío)", () => {
-    const respuesta = { preguntaId: "hs1", respuestaIds: [] };
-    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  it("retorna 1 cuando el clic está exactamente en el borde del radio", () => {
+    // sqrt((60-50)² + (20-20)²) = 10 = radio → debe aprobar
+    const respuesta = { preguntaId: "hs1", hotspotClick: { x: 60, y: 20 } };
+    expect(calcularCreditoPregunta(pregunta, respuesta)).toBe(1);
+  });
+
+  it("retorna 0 cuando el clic está fuera del radio de tolerancia", () => {
+    // sqrt((70-50)² + (40-20)²) = sqrt(800) ≈ 28.3 > 10
+    const respuesta = { preguntaId: "hs1", hotspotClick: { x: 70, y: 40 } };
+    expect(calcularCreditoPregunta(pregunta, respuesta)).toBe(0);
+  });
+
+  it("retorna 0 cuando no hay hotspotClick en la respuesta", () => {
+    const respuesta = { preguntaId: "hs1" };
+    expect(calcularCreditoPregunta(pregunta, respuesta)).toBe(0);
   });
 
   it("retorna 0 cuando respuestaApp es undefined", () => {
-    expect(calcularCreditoPregunta(preguntaBase, undefined)).toBe(0);
+    expect(calcularCreditoPregunta(pregunta, undefined)).toBe(0);
   });
 
-  it("retorna 1 cuando todas las zonas correctas son seleccionadas (multi-zona)", () => {
-    const respuesta = { preguntaId: "hs2", respuestaIds: ["z1", "z2", "z4"] };
-    expect(calcularCreditoPregunta(preguntaMultiple, respuesta)).toBe(1);
-  });
-
-  it("retorna 0.5 cuando 1 de 2 zonas correctas son seleccionadas (crédito parcial)", () => {
-    // pregunta con exactamente 2 zonas correctas para probar 0.5
-    const pregunta2 = {
-      ...preguntaMultiple,
-      zonas: [
-        { id: "z1", etiqueta: "Mitocondria", forma: "circle", coordenadas: [120, 80, 30], esCorrecta: true },
-        { id: "z2", etiqueta: "Núcleo", forma: "rect", coordenadas: [200, 150, 80, 60], esCorrecta: true },
-        { id: "z3", etiqueta: "Ribosoma", forma: "circle", coordenadas: [50, 50, 10], esCorrecta: false },
-      ],
-    };
-    const respuesta = { preguntaId: "hs2", respuestaIds: ["z1"] };
-    expect(calcularCreditoPregunta(pregunta2, respuesta)).toBe(0.5);
+  it("retorna 0 cuando zonaCorrecta no existe en la pregunta", () => {
+    const preguntaSinZona = { ...pregunta, zonaCorrecta: undefined };
+    const respuesta = { preguntaId: "hs1", hotspotClick: { x: 50, y: 20 } };
+    expect(calcularCreditoPregunta(preguntaSinZona, respuesta)).toBe(0);
   });
 });
 

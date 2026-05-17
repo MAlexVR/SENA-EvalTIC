@@ -45,7 +45,6 @@ export async function GET(req: NextRequest) {
             config: true,
             fechaInicio: true,
             fechaFin: true,
-            instructor: { select: { email: true } },
           },
         },
       },
@@ -85,7 +84,6 @@ export async function GET(req: NextRequest) {
     if (!aprendiz) {
       return NextResponse.json({
         encontrado: false,
-        instructorEmail: ficha.evaluacion.instructor.email,
         error:
           "No estás registrado en esta ficha. Verifica el número de ficha y tu cédula con tu instructor.",
       });
@@ -125,7 +123,6 @@ export async function GET(req: NextRequest) {
       apellidos: aprendiz.apellidos,
       tipoDocumento: aprendiz.tipoDocumento,
       email: aprendiz.email,
-      instructorEmail: ficha.evaluacion.instructor.email,
       puedeIniciar,
       intentosUsados,
       intentosPermitidos,

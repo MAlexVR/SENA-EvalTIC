@@ -24,3 +24,27 @@ export async function getInstructorSession() {
   if (!session?.user?.instructorId) return null;
   return session;
 }
+
+/**
+ * Verifica que el usuario tenga sesión activa Y sea administrador.
+ * Usar en endpoints exclusivos de admin (CRUD de instructores, config global).
+ */
+export async function requireAdmin() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.instructorId) {
+    redirect("/instructor/login");
+  }
+  if (!session.user.isAdmin) {
+    redirect("/instructor/dashboard");
+  }
+  return session;
+}
+
+/**
+ * Versión API de requireAdmin — retorna null en vez de redirigir.
+ */
+export async function getAdminSession() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.instructorId || !session.user.isAdmin) return null;
+  return session;
+}

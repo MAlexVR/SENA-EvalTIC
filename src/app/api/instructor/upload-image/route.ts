@@ -45,6 +45,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No se recibió ningún archivo" }, { status: 400 });
     }
 
+    const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+    if (!ALLOWED_MIME.includes(file.type)) {
+      return NextResponse.json(
+        { error: "Tipo de archivo no permitido. Solo se aceptan JPEG, PNG, WebP y GIF." },
+        { status: 400 },
+      );
+    }
+
+    if (file.size > MAX_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: "El archivo supera el límite de 5 MB." },
+        { status: 400 },
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 

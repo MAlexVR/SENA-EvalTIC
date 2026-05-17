@@ -48,7 +48,9 @@ export async function GET() {
       resendApiKey: maskedKey,
       tieneApiKey: !!instructor.resendApiKey,
       cloudinaryCloudName: instructor.cloudinaryCloudName ?? null,
-      cloudinaryApiKey: instructor.cloudinaryApiKey ?? null,
+      cloudinaryApiKey: instructor.cloudinaryApiKey
+        ? `${"*".repeat(Math.max(0, instructor.cloudinaryApiKey.length - 4))}${instructor.cloudinaryApiKey.slice(-4)}`
+        : null,
       tieneCloudinary: !!instructor.cloudinaryApiSecret,
     });
   } catch {
@@ -134,7 +136,9 @@ export async function PUT(req: NextRequest) {
       resendApiKey: maskedKey,
       tieneApiKey: !!updated.resendApiKey,
       cloudinaryCloudName: updated.cloudinaryCloudName ?? null,
-      cloudinaryApiKey: updated.cloudinaryApiKey ?? null,
+      cloudinaryApiKey: updated.cloudinaryApiKey
+        ? `${"*".repeat(Math.max(0, updated.cloudinaryApiKey.length - 4))}${updated.cloudinaryApiKey.slice(-4)}`
+        : null,
       tieneCloudinary: !!updated.cloudinaryApiSecret,
     });
   } catch {

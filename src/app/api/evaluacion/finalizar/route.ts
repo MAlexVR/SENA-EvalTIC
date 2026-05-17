@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { APP_CONFIG } from "@/lib/config";
 import { calcularPuntaje } from "@/lib/score";
 import { enviarCorreoResultado, enviarCorreoPrevisualizacion } from "@/lib/email";
+import { sanitizarParaCliente } from "@/lib/question-preparation";
 import allQuestions from "@/data/preguntas.json";
 import fs from "fs";
 import path from "path";
@@ -13,6 +14,13 @@ const COMPLETED_EVALUATIONS_FILE = path.join(
   process.cwd(),
   "src/data/evaluaciones-completadas.json",
 );
+
+function sanitizarResultado(q: any): any {
+  const r = sanitizarParaCliente(q, q.tipo);
+  // Re-agregar retroalimentacion para la vista de resultado
+  if (q.retroalimentacion) r.retroalimentacion = q.retroalimentacion;
+  return r;
+}
 
 const finalizarSchema = z.object({
   cedula: z.string().min(4, "Cédula muy corta").max(20, "Cédula muy larga"),
@@ -52,10 +60,20 @@ export async function POST(request: NextRequest) {
       fichaId,
       evaluacionId,
       tiempoUsado,
-      intentoNumero,
       esPrueba,
       incidenciasAntiplagio,
     } = body;
+
+    // C3 — Verificar JWT ANTES de cualquier acceso a BD
+    if (esPrueba === true) {
+      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+      if (!token?.instructorId) {
+        return NextResponse.json(
+          { error: "No autorizado para modo prueba" },
+          { status: 401 },
+        );
+      }
+    }
 
     // ═══ RAMA DB (feature flag) ═══════════════════════════════════════════════
     if (APP_CONFIG.useDatabaseBackend) {
@@ -110,17 +128,12 @@ export async function POST(request: NextRequest) {
 
       // 3. Modo prueba del instructor: calcular pero NO guardar
       if (esPrueba === true) {
+        // JWT ya fue verificado al inicio del handler (C3)
         const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-        if (!token?.instructorId) {
-          return NextResponse.json(
-            { error: "No autorizado para modo prueba" },
-            { status: 401 },
-          );
-        }
 
         // Fire-and-forget: vista previa del correo al aprendiz enviada al instructor
         void enviarCorreoPrevisualizacion({
-          instructorId: token.instructorId as string,
+          instructorId: token!.instructorId as string,
           evaluacionId,
           fichaId: fichaId ?? null,
           nombres: nombres ?? "Aprendiz",
@@ -137,7 +150,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           resultado,
-          preguntasCompletas: preguntasEvaluadas,
+          preguntasCompletas: preguntasEvaluadas.map(sanitizarResultado),
           esPrueba: true,
           anulada: anuladaComputada,
         });
@@ -151,10 +164,30 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const intento =
-        typeof intentoNumero === "number" && intentoNumero > 0
-          ? intentoNumero
-          : 1;
+      // A3+B1 — Verificar límite de intentos y calcular intentoNumero server-side
+      const intentosUsados = await prisma.resultado.count({
+        where: { cedula, evaluacionId, esPrueba: false },
+      });
+
+      let intentosExtra = 0;
+      if (fichaId) {
+        const aprendizData = await prisma.aprendiz.findUnique({
+          where: { cedula_fichaId: { cedula, fichaId } },
+          select: { intentosExtra: true },
+        });
+        intentosExtra = aprendizData?.intentosExtra ?? 0;
+      }
+
+      const intentosPermitidos = (evaluacion.maxIntentos ?? 1) + intentosExtra;
+      if (intentosUsados >= intentosPermitidos) {
+        return NextResponse.json(
+          { error: "Has agotado el número de intentos permitidos para esta evaluación." },
+          { status: 403 },
+        );
+      }
+
+      // B1 — intento calculado server-side (no confiar en el cliente)
+      const intento = intentosUsados + 1;
 
       try {
         await prisma.resultado.create({
@@ -239,7 +272,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         resultado,
-        preguntasCompletas: preguntasEvaluadas,
+        preguntasCompletas: preguntasEvaluadas.map(sanitizarResultado),
         anulada: anuladaComputada,
       });
     }
@@ -312,7 +345,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       resultado,
       anulada: anuladaLegacy,
-      preguntasCompletas: preguntasEvaluadas,
+      preguntasCompletas: preguntasEvaluadas.map(sanitizarResultado),
     });
   } catch (error) {
     console.error("Error al finalizar evaluación:", error);

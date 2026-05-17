@@ -7,6 +7,13 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
+if (process.env.NODE_ENV === "production" && !process.env.ENCRYPTION_KEY) {
+  throw new Error(
+    "[crypto] ENCRYPTION_KEY es requerida en producción. " +
+    "Genera una con: openssl rand -base64 32",
+  );
+}
+
 function getKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key || key.length !== 64) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireInstructor } from "@/lib/auth-utils";
+import { requireAdmin } from "@/lib/auth-utils";
 import bcrypt from "bcryptjs";
 
 interface Params {
@@ -33,11 +33,7 @@ const editarInstructorSchema = z.object({
 
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
-    const session = await requireInstructor();
-
-    if (!session.user.isAdmin) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
+    const session = await requireAdmin();
 
     const { id } = await params;
 
@@ -87,11 +83,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    const session = await requireInstructor();
-
-    if (!session.user.isAdmin) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
+    const session = await requireAdmin();
 
     const { id } = await params;
 

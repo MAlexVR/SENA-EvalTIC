@@ -6,20 +6,18 @@ import {
 
 describe("sanitizarParaCliente", () => {
   describe("hotspot", () => {
-    it("elimina esCorrecta de cada zona", () => {
+    // Modelo actual: zonaCorrecta {cx, cy, radio} — punto único + radio de tolerancia
+    it("elimina zonaCorrecta y no expone la respuesta al cliente", () => {
       const pregunta = {
         id: "1",
         tipo: "hotspot",
-        instruccion: "Haga clic en la zona correcta",
-        imagen: "https://example.com/img.png",
-        imagenAlt: "Diagrama",
-        respuestaCorrecta: ["z1"],
-        retroalimentacion: "Correcto",
+        instruccion: "Haz clic sobre el router en el diagrama de red OSI.",
+        imagen: "https://example.com/red.png",
+        imagenAlt: "Diagrama de red en estrella",
+        respuestaCorrecta: ["any"],
+        retroalimentacion: "El router es la puerta de enlace predeterminada.",
         tolerancia: 0,
-        zonas: [
-          { id: "z1", etiqueta: "Zona A", forma: "rect", coordenadas: [0, 0, 100, 100], esCorrecta: true },
-          { id: "z2", etiqueta: "Zona B", forma: "rect", coordenadas: [100, 0, 200, 100], esCorrecta: false },
-        ],
+        zonaCorrecta: { cx: 50, cy: 20, radio: 12 },
       };
 
       const result = sanitizarParaCliente(pregunta, "hotspot");
@@ -27,11 +25,10 @@ describe("sanitizarParaCliente", () => {
       expect(result.respuestaCorrecta).toBeUndefined();
       expect(result.retroalimentacion).toBeUndefined();
       expect(result.tolerancia).toBeUndefined();
-      for (const zona of result.zonas) {
-        expect(zona.esCorrecta).toBeUndefined();
-      }
-      expect(result.zonas[0].id).toBe("z1");
-      expect(result.zonas[1].id).toBe("z2");
+      expect(result.zonaCorrecta).toBeUndefined();
+      // Campos no sensibles deben mantenerse
+      expect(result.instruccion).toBe(pregunta.instruccion);
+      expect(result.imagen).toBe(pregunta.imagen);
     });
 
     it("no muta el objeto original", () => {
@@ -41,15 +38,16 @@ describe("sanitizarParaCliente", () => {
         instruccion: "test",
         imagen: "url",
         imagenAlt: "alt",
-        respuestaCorrecta: ["z1"],
+        respuestaCorrecta: ["any"],
         retroalimentacion: "x",
-        zonas: [{ id: "z1", etiqueta: "A", forma: "rect", coordenadas: [], esCorrecta: true }],
+        zonaCorrecta: { cx: 50, cy: 20, radio: 10 },
       };
 
       sanitizarParaCliente(pregunta, "hotspot");
 
       expect(pregunta.respuestaCorrecta).toBeDefined();
-      expect(pregunta.zonas[0].esCorrecta).toBe(true);
+      expect(pregunta.zonaCorrecta).toBeDefined();
+      expect(pregunta.zonaCorrecta.cx).toBe(50);
     });
   });
 

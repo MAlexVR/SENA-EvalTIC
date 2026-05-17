@@ -32,10 +32,10 @@ const securityHeaders = [
       // Next.js/React requieren unsafe-inline y unsafe-eval (RSC, hot reload)
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://res.cloudinary.com",
       "font-src 'self' data:",
-      // Fetch/XHR solo al mismo origen
-      "connect-src 'self'",
+      // Fetch/XHR al mismo origen y Cloudinary API para uploads
+      "connect-src 'self' https://api.cloudinary.com",
       // Bloquea embeber la app en iframes de terceros
       "frame-ancestors 'none'",
     ].join("; "),

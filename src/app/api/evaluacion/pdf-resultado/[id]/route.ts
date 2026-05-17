@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { APP_CONFIG } from "@/lib/config";
+import { sanitizarParaCliente } from "@/lib/question-preparation";
 
 /**
  * Public endpoint — lets a student download their own result PDF.
@@ -44,6 +45,13 @@ export async function GET(
     (resultado.evaluacion.config as any)?.passingScorePercentage ??
     APP_CONFIG.passingScorePercentage;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function sanitizarResultado(q: any): any {
+    const r = sanitizarParaCliente(q, q.tipo);
+    if (q.retroalimentacion) r.retroalimentacion = q.retroalimentacion;
+    return r;
+  }
+
   return NextResponse.json({
     resultado: {
       cedula: resultado.cedula,
@@ -60,7 +68,7 @@ export async function GET(
       presentadoEn: resultado.presentadoEn.toISOString(),
       respuestas: resultado.respuestas,
     },
-    preguntas: preguntasEvaluadas,
+    preguntas: preguntasEvaluadas.map(sanitizarResultado),
     passingScore,
   });
 }

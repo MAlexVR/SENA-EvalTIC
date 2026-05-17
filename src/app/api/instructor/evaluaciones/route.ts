@@ -11,10 +11,21 @@ const crearEvaluacionSchema = z.object({
   codigoCompetencia: z.string().min(1, "Código de competencia requerido").max(20),
   resultadoAprendizaje: z.string().min(3, "Resultado de aprendizaje muy corto").max(500),
   codigoRA: z.string().min(1, "Código RA requerido").max(20),
-  preguntas: z.array(z.unknown()).optional(),
+  preguntas: z.array(
+    z.object({ tipo: z.enum(["seleccion_unica","seleccion_multiple","emparejamiento","verdadero_falso","numerica","ordenamiento","completar","clasificacion","hotspot"]) }).passthrough()
+  ).optional(),
   fechaInicio: z.string().optional().nullable(),
   fechaFin: z.string().optional().nullable(),
-  config: z.record(z.string(), z.unknown()).optional(),
+  config: z.object({
+    timeLimitMinutes: z.number().int().min(1).max(180).optional(),
+    passingScorePercentage: z.number().min(0).max(100).optional(),
+    distribucionPreguntas: z.record(z.string(), z.number().int().min(0)).optional(),
+    aleatorizarOpciones: z.boolean().optional(),
+    umbralAntiplagio: z.object({
+      medio: z.number().int().min(1).optional(),
+      alto: z.number().int().min(1).optional(),
+    }).optional(),
+  }).optional(),
   maxIntentos: z.number().int().min(1).max(10).optional(),
 });
 

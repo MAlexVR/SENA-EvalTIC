@@ -1,16 +1,18 @@
 import { InstructorSidebar } from "@/components/organisms/InstructorSidebar";
 import { InstructorMobileNav } from "@/components/organisms/InstructorMobileNav";
+import { requireInstructor } from "@/lib/auth-utils";
 
 export const metadata = {
   title: "Panel Instructor — SENA EvalTIC",
   description: "Panel de administración de evaluaciones SENA CEET",
 };
 
-export default function InstructorProtectedLayout({
+export default async function InstructorProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireInstructor(); // Defensa en profundidad — redirige si no hay sesión
   return (
     <div className="flex h-screen overflow-hidden bg-sena-gray-light">
       {/* Sidebar desktop */}
