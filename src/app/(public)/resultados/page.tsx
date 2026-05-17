@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { generatePDF, savePdf } from "@/lib/pdf-generator";
 import { fmtScore, cn } from "@/lib/utils";
+import { TIPO_LABELS } from "@/types/preguntas";
 
 export default function ResultadosPage() {
   const router = useRouter();
@@ -266,6 +267,21 @@ export default function ResultadosPage() {
         userText: userPairs.join("; "),
         correctText: status !== "correcta" ? correctPairs.join("; ") : "",
         creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
+    if (q.tipo === "verdadero_falso") {
+      const seleccionado: string | undefined = userAnswer.respuestaIds?.[0];
+      const correcto: string | undefined = (q.respuestaCorrecta as string[])?.[0];
+      const toLabel = (v: string | undefined) =>
+        v === "verdadero" ? "Verdadero" : v === "falso" ? "Falso" : "Sin respuesta";
+
+      return {
+        status,
+        userText: toLabel(seleccionado),
+        correctText: status !== "correcta" ? toLabel(correcto) : "",
+        creditoInfo: null,
         retroalimentacion: q.retroalimentacion || "",
       };
     }
@@ -559,12 +575,7 @@ export default function ResultadosPage() {
                         Pregunta {index + 1}{" "}
                         <span className="font-normal text-sena-gray-dark/70">
                           ({q.tema || "General"} •{" "}
-                          {q.tipo === "seleccion_unica"
-                            ? "Selección única"
-                            : q.tipo === "seleccion_multiple"
-                              ? "Selección múltiple"
-                              : "Emparejamiento"}
-                          )
+                          {TIPO_LABELS[q.tipo as keyof typeof TIPO_LABELS] ?? q.tipo})
                         </span>
                       </h4>
                       {qResult.status === "correcta" ? (

@@ -47,6 +47,9 @@ function newBlankPregunta(tipo: TipoPregunta): Pregunta {
   if (tipo === "emparejamiento") {
     return { ...base, tipo: "emparejamiento", pares: [{ izquierda: "", derecha: "" }, { izquierda: "", derecha: "" }] };
   }
+  if (tipo === "verdadero_falso") {
+    return { ...base, tipo: "verdadero_falso", respuestaCorrecta: ["verdadero"] } as unknown as Pregunta;
+  }
   const opciones: Opcion[] = [
     { id: "a", texto: "" },
     { id: "b", texto: "" },
@@ -192,6 +195,10 @@ function EditPreguntaDialog({
       if (draft.pares.length < 2) return "Se requieren al menos 2 pares.";
       if (draft.pares.some((p) => !p.izquierda.trim() || !p.derecha.trim()))
         return "Todos los pares deben tener texto en ambos lados.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "verdadero_falso") {
+      const vf = draft as unknown as { respuestaCorrecta: string[] };
+      if (!vf.respuestaCorrecta?.[0]) return "Debe seleccionar la respuesta correcta.";
     } else {
       const opts = draft.opciones;
       if (opts.length < 2) return "Se requieren al menos 2 opciones.";
@@ -269,6 +276,7 @@ function EditPreguntaDialog({
               <option value="seleccion_unica">Selección única</option>
               <option value="seleccion_multiple">Selección múltiple</option>
               <option value="emparejamiento">Emparejamiento</option>
+              <option value="verdadero_falso">Verdadero / Falso</option>
             </select>
           </div>
 
@@ -394,6 +402,47 @@ function EditPreguntaDialog({
               </Button>
             </div>
           )}
+
+          {/* ── Verdadero / Falso ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "verdadero_falso" && (() => {
+            const draftVf = draft as unknown as { id: string; tipo: string; respuestaCorrecta: string[] };
+            return (
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-semibold text-sena-blue">Respuesta correcta *</Label>
+                <div className="flex gap-3">
+                  {(["verdadero", "falso"] as const).map((valor) => {
+                    const isSelected = draftVf.respuestaCorrecta?.[0] === valor;
+                    return (
+                      <label
+                        key={valor}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-sena-green bg-sena-green/5 text-sena-green font-bold"
+                            : "border-sena-gray-dark/20 text-sena-gray-dark/60 hover:border-sena-green/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name={`vf-${draftVf.id}`}
+                          checked={isSelected}
+                          onChange={() =>
+                            setDraft((prev) =>
+                              prev
+                                ? ({ ...prev, respuestaCorrecta: [valor] } as unknown as Pregunta)
+                                : prev
+                            )
+                          }
+                          className="accent-sena-green"
+                        />
+                        {valor === "verdadero" ? "Verdadero" : "Falso"}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Retroalimentación */}
           <div className="grid gap-1.5">

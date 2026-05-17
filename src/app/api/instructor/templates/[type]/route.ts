@@ -100,5 +100,22 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
   }
 
+  // ── Plantilla verdadero_falso (.json) ─────────────────────────────────────
+  if (type === "verdadero_falso") {
+    const template = {
+      tipo: "verdadero_falso",
+      enunciado: "El sol es una estrella.",
+      respuestaCorrecta: ["verdadero"],
+      retroalimentacion: "Correcto. El sol es la estrella más cercana a la Tierra.",
+    };
+
+    return new NextResponse(JSON.stringify(template, null, 2), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="plantilla-verdadero-falso.json"',
+      },
+    });
+  }
+
   return NextResponse.json({ error: "Tipo de plantilla no válido" }, { status: 400 });
 }

@@ -5,6 +5,7 @@ import { APP_CONFIG } from "./config";
 import { EvaluacionResultado, calcularCreditoPregunta } from "./score";
 import { DatosAprendiz, RespuestaAprendiz } from "@/stores/evaluacion-store";
 import { fmtScore } from "./utils";
+import { TIPO_LABELS, TipoPregunta } from "@/types/preguntas";
 
 // PAGE LAYOUT - Letter 8.5x11 in
 const PAGE_W = 215.9;
@@ -712,12 +713,10 @@ export async function generatePDF(
     ctx.y = checkPage(ctx, 14);
     doc.setFontSize(9);
     doc.setFont(font, "bold");
-    const tipoLabel =
-      q.tipo === "seleccion_unica"
-        ? "Seleccion Unica"
-        : q.tipo === "seleccion_multiple"
-          ? "Seleccion Multiple"
-          : "Emparejamiento";
+    const tipoLabel = (TIPO_LABELS[q.tipo as TipoPregunta] ?? q.tipo)
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/\//g, "-");
 
     fc(doc, GRAY_LIGHT);
     doc.rect(MARGIN, ctx.y - 4, CONTENT_W, 7, "F");
@@ -742,7 +741,27 @@ export async function generatePDF(
     ctx.y += 2;
 
     // Answer section
-    if (q.tipo === "emparejamiento" && ua) {
+    if (q.tipo === "verdadero_falso" && ua) {
+      const seleccionado: string | undefined = ua.respuestaIds?.[0];
+      const correcto: string | undefined = (q.respuestaCorrecta as string[] | undefined)?.[0];
+      const toLabel = (v: string | undefined) =>
+        v === "verdadero" ? "Verdadero" : v === "falso" ? "Falso" : "(sin respuesta)";
+
+      ctx.y = checkPage(ctx, 10);
+      doc.setFontSize(8.5);
+      doc.setFont(font, "bold");
+      tc(doc, SENA_BLUE);
+      doc.text("Su respuesta:", MARGIN + 3, ctx.y);
+      doc.setFont(font, "normal");
+      if (isCorrect === "Correcta") tc(doc, SENA_GREEN);
+      else if (isCorrect === "Incorrecta") tc(doc, RED);
+      else tc(doc, GRAY);
+      ctx.y = wrapText(ctx, toLabel(seleccionado), MARGIN + 38, CONTENT_W - 41, 5);
+
+      if (isCorrect !== "Correcta" && correcto) {
+        correctTextStr = toLabel(correcto);
+      }
+    } else if (q.tipo === "emparejamiento" && ua) {
       const pares = q.pares || [];
       const emps = ua.emparejamientos || {};
       const COL0 = (CONTENT_W - 4) * 0.37;

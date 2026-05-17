@@ -50,6 +50,12 @@ export function calcularCreditoPregunta(
     return aciertos / pares.length;
   }
 
+  if (pregunta.tipo === "verdadero_falso") {
+    const correctas: string[] = pregunta.respuestaCorrecta ?? [];
+    const seleccionadas = respuestaApp.respuestaIds ?? [];
+    return seleccionadas[0] === correctas[0] ? 1 : 0;
+  }
+
   return 0;
 }
 

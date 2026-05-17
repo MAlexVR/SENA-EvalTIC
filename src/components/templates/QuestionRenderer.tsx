@@ -50,6 +50,13 @@ export function QuestionRenderer() {
     });
   };
 
+  const handleVerdaderoFalso = (valor: "verdadero" | "falso") => {
+    responderPregunta({
+      preguntaId: qId,
+      respuestaIds: [valor],
+    });
+  };
+
   const handleEmparejamiento = (subPreguntaId: string, opcionId: string) => {
     const prevEmp = respuestaActual?.emparejamientos || {};
     responderPregunta({
@@ -137,6 +144,29 @@ export function QuestionRenderer() {
                     {opcion.texto}
                   </span>
                 </Label>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Renderizado de Verdadero / Falso */}
+        {pregunta.tipo === "verdadero_falso" && (
+          <div className="flex flex-col sm:flex-row gap-4">
+            {(["verdadero", "falso"] as const).map((valor) => {
+              const isSelected = respuestaActual?.respuestaIds?.[0] === valor;
+              return (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => handleVerdaderoFalso(valor)}
+                  className={`flex-1 py-5 rounded-xl border-2 text-lg font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-sena-green bg-sena-green text-white shadow-md"
+                      : "border-sena-gray-dark/20 bg-white text-sena-blue hover:border-sena-green hover:bg-sena-green/5"
+                  }`}
+                >
+                  {valor === "verdadero" ? "Verdadero" : "Falso"}
+                </button>
               );
             })}
           </div>
