@@ -16,8 +16,11 @@ model Instructor {
   nombre              String
   password            String
   isAdmin             Boolean      @default(false)
-  resendApiKey        String?
-  emailNotificaciones Boolean      @default(false)
+  resendApiKey         String?
+  emailNotificaciones  Boolean      @default(false)
+  cloudinaryCloudName  String?
+  cloudinaryApiKey     String?
+  cloudinaryApiSecret  String?
   evaluaciones        Evaluacion[]
   creadoEn            DateTime     @default(now())
 }
