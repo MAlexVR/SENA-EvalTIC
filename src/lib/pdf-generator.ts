@@ -875,6 +875,95 @@ export async function generatePDF(
         },
       });
       ctx.y = (doc as unknown as DocWithTable).lastAutoTable.finalY + 3;
+    } else if (q.tipo === "completar" && ua) {
+      const segmentos: Array<{ tipo: "texto" | "espacio"; contenido?: string; id?: string; respuestaCorrecta?: string }> =
+        (q as any).segmentos ?? [];
+      const espacioSegs = segmentos.filter((s) => s.tipo === "espacio") as Array<{
+        tipo: "espacio"; id: string; respuestaCorrecta?: string;
+      }>;
+      const espaciosRespuestas: Record<string, string> = ua.espacios ?? {};
+
+      const tableBody = espacioSegs.map((espacio) => {
+        const studentAnswer = espaciosRespuestas[espacio.id] ?? "(sin respuesta)";
+        const correctAnswer = espacio.respuestaCorrecta ?? "";
+        const isOk = studentAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+        return [n(`[[${espacio.id}]]`), n(studentAnswer), isOk ? "1" : "0", n(correctAnswer)];
+      });
+
+      if (isCorrect === "Parcial") {
+        const aciertos = espacioSegs.filter((s) => {
+          const student = (espaciosRespuestas[s.id] ?? "").trim().toLowerCase();
+          const correct = (s.respuestaCorrecta ?? "").trim().toLowerCase();
+          return student === correct;
+        }).length;
+        creditoInfo = `${aciertos} de ${espacioSegs.length} espacios correctos`;
+      }
+
+      const compEstimate = 10 + espacioSegs.length * 9 + 6;
+      ctx.y = checkPage(ctx, compEstimate);
+      autoTable(doc, {
+        startY: ctx.y,
+        head: [["Espacio", "Su respuesta", "Val.", "Respuesta correcta"]],
+        body: tableBody,
+        theme: "grid",
+        headStyles: {
+          fillColor: SENA_BLUE,
+          textColor: 255,
+          fontSize: 8,
+          halign: "center",
+          ...tbl({}),
+        },
+        bodyStyles: { fontSize: 8, ...tbl({}) },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: (CONTENT_W - 4 - 22 - 10) * 0.5 },
+          2: { cellWidth: 10, halign: "center" },
+          3: { cellWidth: (CONTENT_W - 4 - 22 - 10) * 0.5 },
+        },
+        margin: { top: HEADER_BOTTOM, left: MARGIN, right: MARGIN, bottom: 22 },
+        pageBreak: "auto",
+        showHead: "everyPage",
+        didParseCell: (data) => {
+          if (data.section !== "body") return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          if (data.column.index === 2) {
+            data.cell.text = [""];
+            data.cell.styles.fillColor = isOK ? SENA_GREEN : RED;
+          }
+          if (data.column.index === 1) {
+            data.cell.styles.textColor = isOK ? SENA_GREEN : RED;
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 2) return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          const cx = data.cell.x + data.cell.width / 2;
+          const cy = data.cell.y + data.cell.height / 2;
+          doc.setFillColor(255, 255, 255);
+          doc.circle(cx, cy, 2.2, "F");
+          doc.setLineWidth(0.4);
+          if (isOK) {
+            doc.setDrawColor(SENA_GREEN[0], SENA_GREEN[1], SENA_GREEN[2]);
+            doc.line(cx - 1, cy, cx - 0.2, cy + 1.2);
+            doc.line(cx - 0.2, cy + 1.2, cx + 1.2, cy - 1);
+          } else {
+            doc.setDrawColor(RED[0], RED[1], RED[2]);
+            doc.line(cx - 1, cy - 1, cx + 1, cy + 1);
+            doc.line(cx + 1, cy - 1, cx - 1, cy + 1);
+          }
+          tc(doc, BLACK);
+        },
+        didDrawPage: (data) => {
+          addFooter(doc, font);
+          if (data.pageNumber > 1) {
+            ctx.y = addHeader(doc, dateStr, font);
+            addWatermark(doc, watermarkText);
+          }
+        },
+      });
+      ctx.y = (doc as unknown as DocWithTable).lastAutoTable.finalY + 3;
     } else if (q.tipo === "emparejamiento" && ua) {
       const pares = q.pares || [];
       const emps = ua.emparejamientos || {};

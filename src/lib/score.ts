@@ -77,6 +77,20 @@ export function calcularCreditoPregunta(
     return aciertos / respuestaCorrecta.length;
   }
 
+  if (pregunta.tipo === "completar") {
+    const segmentos: any[] = pregunta.segmentos ?? [];
+    const espacios = segmentos.filter((s: any) => s.tipo === "espacio");
+    if (espacios.length === 0) return 0;
+    const respuestaEspacios: Record<string, string> = respuestaApp.espacios ?? {};
+    let correctos = 0;
+    for (const espacio of espacios) {
+      const studentAnswer = (respuestaEspacios[espacio.id] ?? "").trim().toLowerCase();
+      const correctAnswer = (espacio.respuestaCorrecta ?? "").trim().toLowerCase();
+      if (studentAnswer === correctAnswer) correctos++;
+    }
+    return correctos / espacios.length;
+  }
+
   return 0;
 }
 

@@ -67,6 +67,14 @@ function newBlankPregunta(tipo: TipoPregunta): Pregunta {
       respuestaCorrecta: [e1, e2],
     } as unknown as Pregunta;
   }
+  if (tipo === "completar") {
+    return {
+      ...base,
+      tipo: "completar",
+      instruccion: "",
+      segmentos: [],
+    } as unknown as Pregunta;
+  }
   const opciones: Opcion[] = [
     { id: "a", texto: "" },
     { id: "b", texto: "" },
@@ -228,6 +236,13 @@ function EditPreguntaDialog({
       const ord = draft as unknown as { elementos: { id: string; texto: string }[]; respuestaCorrecta: string[] };
       if (!ord.elementos || ord.elementos.length < 2) return "Se requieren al menos 2 elementos.";
       if (ord.elementos.some((e) => !e.texto.trim())) return "Todos los elementos deben tener texto.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "completar") {
+      const comp = draft as unknown as { segmentos: any[] };
+      const espacios = (comp.segmentos ?? []).filter((s: any) => s.tipo === "espacio");
+      if (espacios.length === 0) return "Debe incluir al menos un espacio [[id]] en la oración.";
+      const espaciosInvalidos = espacios.filter((s: any) => !s.respuestaCorrecta?.trim());
+      if (espaciosInvalidos.length > 0) return "Todos los espacios deben tener una respuesta correcta.";
     } else {
       const opts = draft.opciones;
       if (opts.length < 2) return "Se requieren al menos 2 opciones.";
@@ -308,6 +323,7 @@ function EditPreguntaDialog({
               <option value="verdadero_falso">Verdadero / Falso</option>
               <option value="numerica">Numérica</option>
               <option value="ordenamiento">Ordenamiento</option>
+              <option value="completar">Completar espacios</option>
             </select>
           </div>
 
@@ -670,6 +686,129 @@ function EditPreguntaDialog({
                     Agregar elemento
                   </Button>
                 </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Completar espacios ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "completar" && (() => {
+            const draftComp = draft as unknown as {
+              instruccion?: string;
+              segmentos: Array<{ tipo: "texto" | "espacio"; contenido?: string; id?: string; respuestaCorrecta?: string; opciones?: string[] }>;
+            };
+
+            // Parse [[id]] tokens from raw text to build segmentos array
+            const parseOracion = (oracion: string) => {
+              const parts = oracion.split(/(\[\[[\w-]+\]\])/g);
+              const segs: typeof draftComp.segmentos = [];
+              const existingEspacios = draftComp.segmentos.filter((s) => s.tipo === "espacio");
+
+              for (const part of parts) {
+                const match = part.match(/^\[\[([\w-]+)\]\]$/);
+                if (match) {
+                  const id = match[1];
+                  const existing = existingEspacios.find((s) => s.id === id);
+                  segs.push({
+                    tipo: "espacio",
+                    id,
+                    respuestaCorrecta: existing?.respuestaCorrecta ?? "",
+                    opciones: existing?.opciones ?? [],
+                  });
+                } else if (part) {
+                  segs.push({ tipo: "texto", contenido: part });
+                }
+              }
+              return segs;
+            };
+
+            // Reconstruct raw oracion text from segmentos for the textarea
+            const buildOracion = (segs: typeof draftComp.segmentos) =>
+              segs.map((s) => (s.tipo === "texto" ? s.contenido : `[[${s.id}]]`)).join("");
+
+            const rawOracion = buildOracion(draftComp.segmentos);
+            const espacioSegs = draftComp.segmentos.filter((s) => s.tipo === "espacio") as Array<{
+              tipo: "espacio"; id: string; respuestaCorrecta?: string; opciones?: string[];
+            }>;
+
+            const handleOracionChange = (value: string) => {
+              const newSegmentos = parseOracion(value);
+              setDraft((prev) => prev ? ({ ...prev, segmentos: newSegmentos } as unknown as Pregunta) : prev);
+            };
+
+            const updateEspacio = (id: string, field: "respuestaCorrecta" | "opciones", value: string | string[]) => {
+              const newSegmentos = draftComp.segmentos.map((s) =>
+                s.tipo === "espacio" && s.id === id ? { ...s, [field]: value } : s
+              );
+              setDraft((prev) => prev ? ({ ...prev, segmentos: newSegmentos } as unknown as Pregunta) : prev);
+            };
+
+            return (
+              <div className="space-y-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción (opcional)</Label>
+                  <textarea
+                    className="flex min-h-[50px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={draftComp.instruccion ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) => prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev)
+                    }
+                    placeholder="Ej: Completa los espacios con la palabra correcta."
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Oración con espacios *</Label>
+                  <p className="text-[10px] text-sena-gray-dark/50">
+                    Escribe la oración y usa {"[[id]]"} para marcar cada espacio en blanco. Ejemplo: El agua hierve a {"[[temp]]"} grados.
+                  </p>
+                  <textarea
+                    className="flex min-h-[70px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none font-mono"
+                    value={rawOracion}
+                    onChange={(e) => handleOracionChange(e.target.value)}
+                    placeholder="El agua hierve a [[temp]] grados Celsius a presión estándar."
+                  />
+                </div>
+
+                {espacioSegs.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-sena-blue">Configurar espacios detectados *</Label>
+                    {espacioSegs.map((espacio) => (
+                      <div key={espacio.id} className="border border-sena-gray-dark/10 rounded-lg p-3 space-y-2 bg-sena-gray-light/30">
+                        <p className="text-xs font-bold text-cyan-600">Espacio: [[{espacio.id}]]</p>
+                        <div className="grid gap-1">
+                          <Label className="text-[10px] text-sena-gray-dark/70">Respuesta correcta *</Label>
+                          <Input
+                            className="h-7 text-xs"
+                            value={espacio.respuestaCorrecta ?? ""}
+                            onChange={(e) => updateEspacio(espacio.id, "respuestaCorrecta", e.target.value)}
+                            placeholder="Respuesta esperada"
+                          />
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-[10px] text-sena-gray-dark/70">
+                            Opciones para dropdown (opcional, separadas por coma)
+                          </Label>
+                          <Input
+                            className="h-7 text-xs"
+                            value={(espacio.opciones ?? []).join(", ")}
+                            onChange={(e) => {
+                              const opts = e.target.value
+                                .split(",")
+                                .map((o) => o.trim())
+                                .filter(Boolean);
+                              updateEspacio(espacio.id, "opciones", opts);
+                            }}
+                            placeholder="Ej: 0, 100, -273"
+                          />
+                          <p className="text-[10px] text-sena-gray-dark/40">
+                            Si está vacío, el aprendiz escribirá libremente. Si tiene opciones, verá un menú desplegable.
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })()}

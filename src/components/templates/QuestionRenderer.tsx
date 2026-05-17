@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { OrdenamientoRenderer } from "@/components/templates/questions/OrdenamientoRenderer";
+import { CompletarRenderer } from "@/components/templates/questions/CompletarRenderer";
 
 export function QuestionRenderer() {
   const {
@@ -71,6 +72,17 @@ export function QuestionRenderer() {
     responderPregunta({
       preguntaId: qId,
       ordenamiento: newOrder,
+    });
+  };
+
+  const handleCompletar = (espacioId: string, valor: string) => {
+    const prevEspacios = respuestaActual?.espacios ?? {};
+    responderPregunta({
+      preguntaId: qId,
+      espacios: {
+        ...prevEspacios,
+        [espacioId]: valor,
+      },
     });
   };
 
@@ -237,6 +249,25 @@ export function QuestionRenderer() {
             <OrdenamientoRenderer
               elementos={(pregunta as any).elementos ?? []}
               onChange={handleOrdenamiento}
+            />
+          </div>
+        )}
+
+        {/* Renderizado de Completar */}
+        {pregunta.tipo === "completar" && (
+          <div className="flex flex-col gap-3">
+            {(pregunta as any).instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {(pregunta as any).instruccion}
+              </p>
+            )}
+            <p className="text-xs text-sena-gray-dark/50">
+              Completa los espacios en blanco con la opción correcta.
+            </p>
+            <CompletarRenderer
+              segmentos={(pregunta as any).segmentos ?? []}
+              espacios={respuestaActual?.espacios ?? {}}
+              onChange={handleCompletar}
             />
           </div>
         )}

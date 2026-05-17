@@ -348,6 +348,47 @@ export default function ResultadosPage() {
       };
     }
 
+    if (q.tipo === "completar") {
+      const segmentos: Array<{ tipo: "texto" | "espacio"; contenido?: string; id?: string; respuestaCorrecta?: string }> = q.segmentos ?? [];
+      const espacioSegs = segmentos.filter((s) => s.tipo === "espacio") as Array<{ tipo: "espacio"; id: string; respuestaCorrecta?: string }>;
+      const espaciosRespuestas: Record<string, string> = userAnswer.espacios ?? {};
+
+      const aciertos = espacioSegs.filter((s) => {
+        const student = (espaciosRespuestas[s.id] ?? "").trim().toLowerCase();
+        const correct = (s.respuestaCorrecta ?? "").trim().toLowerCase();
+        return student === correct;
+      }).length;
+
+      // Build filled sentence with color markers for display
+      const userText = segmentos.map((s) => {
+        if (s.tipo === "texto") return s.contenido ?? "";
+        const answer = espaciosRespuestas[s.id ?? ""] ?? "";
+        const isOk = answer.trim().toLowerCase() === (s.respuestaCorrecta ?? "").trim().toLowerCase();
+        return answer ? `[${answer}${isOk ? "✓" : "✗"}]` : "[—]";
+      }).join("");
+
+      const correctText =
+        status !== "correcta"
+          ? segmentos.map((s) => {
+              if (s.tipo === "texto") return s.contenido ?? "";
+              return `[${s.respuestaCorrecta ?? ""}]`;
+            }).join("")
+          : "";
+
+      const creditoInfo =
+        status === "parcial"
+          ? `${aciertos} de ${espacioSegs.length} espacios correctos`
+          : null;
+
+      return {
+        status,
+        userText,
+        correctText,
+        creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
     return {
       status: "sin_responder" as const,
       userText: "-",

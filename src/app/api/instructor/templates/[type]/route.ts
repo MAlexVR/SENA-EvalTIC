@@ -163,5 +163,29 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
   }
 
+  // ── Plantilla completar (.json) ───────────────────────────────────────────
+  if (type === "completar") {
+    const template = {
+      tipo: "completar",
+      instruccion: "Completa la oración con los términos correctos.",
+      segmentos: [
+        { tipo: "texto", contenido: "El agua se congela a " },
+        { tipo: "espacio", id: "temp", respuestaCorrecta: "0", opciones: ["0", "100", "-273"] },
+        { tipo: "texto", contenido: " grados Celsius y hierve a " },
+        { tipo: "espacio", id: "ebull", respuestaCorrecta: "100" },
+        { tipo: "texto", contenido: " grados Celsius." },
+      ],
+      retroalimentacion:
+        "Los puntos de cambio de fase del agua a presión estándar son 0°C y 100°C.",
+    };
+
+    return new NextResponse(JSON.stringify(template, null, 2), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="plantilla-completar.json"',
+      },
+    });
+  }
+
   return NextResponse.json({ error: "Tipo de plantilla no válido" }, { status: 400 });
 }

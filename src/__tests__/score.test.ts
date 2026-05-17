@@ -80,6 +80,53 @@ describe("calcularCreditoPregunta — ordenamiento", () => {
   });
 });
 
+describe("calcularCreditoPregunta — completar", () => {
+  const preguntaBase = {
+    id: "comp1",
+    tipo: "completar",
+    instruccion: "Completa los espacios con los valores correctos.",
+    segmentos: [
+      { tipo: "texto", contenido: "El agua se congela a " },
+      { tipo: "espacio", id: "temp", respuestaCorrecta: "0", opciones: ["0", "100", "-273"] },
+      { tipo: "texto", contenido: " grados y hierve a " },
+      { tipo: "espacio", id: "ebull", respuestaCorrecta: "100" },
+      { tipo: "texto", contenido: " grados." },
+    ],
+  };
+
+  it("retorna 1 cuando todos los espacios son correctos", () => {
+    const respuesta = { preguntaId: "comp1", espacios: { temp: "0", ebull: "100" } };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(1);
+  });
+
+  it("retorna 0.5 cuando uno de dos espacios es correcto", () => {
+    const respuesta = { preguntaId: "comp1", espacios: { temp: "0", ebull: "50" } };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0.5);
+  });
+
+  it("retorna 0 cuando todos los espacios son incorrectos", () => {
+    const respuesta = { preguntaId: "comp1", espacios: { temp: "50", ebull: "200" } };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  });
+
+  it("retorna 1 con comparación case-insensitive (Bogotá === bogotá)", () => {
+    const pregunta = {
+      id: "comp2",
+      tipo: "completar",
+      segmentos: [
+        { tipo: "espacio", id: "ciudad", respuestaCorrecta: "Bogotá" },
+      ],
+    };
+    const respuesta = { preguntaId: "comp2", espacios: { ciudad: "bogotá" } };
+    expect(calcularCreditoPregunta(pregunta, respuesta)).toBe(1);
+  });
+
+  it("retorna 0 cuando espacios está vacío (sin respuesta)", () => {
+    const respuesta = { preguntaId: "comp1", espacios: {} };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  });
+});
+
 describe("calcularCreditoPregunta — verdadero_falso", () => {
   const pregunta = {
     id: "vf1",
