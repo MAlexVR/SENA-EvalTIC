@@ -25,6 +25,10 @@ export interface RespuestaAprendiz {
   preguntaId: string;
   respuestaIds?: string[];
   emparejamientos?: Record<string, string>;
+  espacios?: Record<string, string>;
+  ordenamiento?: string[];
+  clasificacion?: Record<string, string[]>;
+  valorNumerico?: number;
 }
 
 export interface EvaluacionState {

@@ -25,7 +25,7 @@ export const APP_CONFIG = {
     seleccion_unica: 5, // 5 de selección única
     seleccion_multiple: 3, // 3 de selección múltiple
     emparejamiento: 2, // 2 de emparejamiento
-  },
+  } as Record<string, number>,
   timeLimitMinutes: 15,
   passingScorePercentage: 65,
   aleatorizarOpciones: true, // Aleatorizar opciones de respuesta

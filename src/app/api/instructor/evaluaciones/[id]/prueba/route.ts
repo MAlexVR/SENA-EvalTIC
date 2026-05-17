@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireInstructor } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { shuffleArray } from "@/lib/shuffle";
+import { prepareQuestionsForClient } from "@/lib/question-preparation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,53 +20,17 @@ export async function POST(_req: NextRequest, { params }: Params) {
   const config = evaluacion.config as {
     timeLimitMinutes: number;
     passingScorePercentage: number;
-    distribucionPreguntas: {
-      seleccion_unica: number;
-      seleccion_multiple: number;
-      emparejamiento: number;
-    };
+    distribucionPreguntas: Record<string, number>;
     aleatorizarOpciones: boolean;
     umbralAntiplagio?: { medio: number; alto: number };
   };
 
   const banco = evaluacion.preguntas as any[];
-  const dist = config.distribucionPreguntas;
-
-  const unicas = banco.filter((p) => p.tipo === "seleccion_unica");
-  const multiples = banco.filter((p) => p.tipo === "seleccion_multiple");
-  const emparejamiento = banco.filter((p) => p.tipo === "emparejamiento");
-
-  const seleccionadas = shuffleArray([
-    ...shuffleArray([...unicas]).slice(0, dist.seleccion_unica),
-    ...shuffleArray([...multiples]).slice(0, dist.seleccion_multiple),
-    ...shuffleArray([...emparejamiento]).slice(0, dist.emparejamiento),
-  ]);
-
-  const preguntasCliente = seleccionadas.map((p: any) => {
-    const preguntaCliente = JSON.parse(JSON.stringify(p));
-    if (!preguntaCliente.enunciado && preguntaCliente.texto) {
-      preguntaCliente.enunciado = preguntaCliente.texto;
-    }
-    preguntaCliente.id = String(preguntaCliente.id);
-    delete preguntaCliente.respuestaCorrecta;
-    delete preguntaCliente.retroalimentacion;
-
-    if (p.tipo === "seleccion_unica" || p.tipo === "seleccion_multiple") {
-      if (config.aleatorizarOpciones) {
-        preguntaCliente.opciones = shuffleArray([...preguntaCliente.opciones]);
-      }
-    } else if (p.tipo === "emparejamiento") {
-      const opcionesIzquierda = p.pares.map((par: any) => par.izquierda);
-      const opcionesDerecha = p.pares.map((par: any) => par.derecha);
-      preguntaCliente.izquierdas = opcionesIzquierda;
-      preguntaCliente.derechas = config.aleatorizarOpciones
-        ? shuffleArray([...opcionesDerecha])
-        : opcionesDerecha;
-      delete preguntaCliente.pares;
-    }
-
-    return preguntaCliente;
-  });
+  const preguntasCliente = prepareQuestionsForClient(
+    banco,
+    config.distribucionPreguntas,
+    config.aleatorizarOpciones,
+  );
 
   return NextResponse.json({
     yaPresento: false,

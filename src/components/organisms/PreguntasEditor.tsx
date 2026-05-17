@@ -63,6 +63,12 @@ const TIPO_COLORS: Record<TipoPregunta, string> = {
   seleccion_unica: "border-sena-blue text-sena-blue",
   seleccion_multiple: "border-amber-500 text-amber-600",
   emparejamiento: "border-sena-green text-sena-green",
+  verdadero_falso: "border-purple-500 text-purple-600",
+  completar: "border-cyan-500 text-cyan-600",
+  ordenamiento: "border-orange-500 text-orange-600",
+  hotspot: "border-rose-500 text-rose-600",
+  clasificacion: "border-teal-500 text-teal-600",
+  numerica: "border-indigo-500 text-indigo-600",
 };
 
 // ── Sortable item ─────────────────────────────────────────────────────────────

@@ -4,12 +4,23 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, CheckCircle2, AlertCircle, FileJson, X, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TIPO_LABELS, type TipoPregunta } from "@/types/preguntas";
+
+const TIPO_COLORS: Record<TipoPregunta, string> = {
+  seleccion_unica: "text-sena-blue",
+  seleccion_multiple: "text-amber-600",
+  emparejamiento: "text-sena-green",
+  verdadero_falso: "text-purple-600",
+  completar: "text-cyan-600",
+  ordenamiento: "text-orange-600",
+  hotspot: "text-rose-600",
+  clasificacion: "text-teal-600",
+  numerica: "text-indigo-600",
+};
 
 interface ParsedStats {
   total: number;
-  seleccion_unica: number;
-  seleccion_multiple: number;
-  emparejamiento: number;
+  porTipo: Partial<Record<TipoPregunta, number>>;
 }
 
 interface JsonUploaderProps {
@@ -30,11 +41,19 @@ function parsePreguntas(json: unknown): unknown[] {
 function getStats(preguntas: unknown[]): ParsedStats {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typed = preguntas as any[];
+  const porTipo: Partial<Record<TipoPregunta, number>> = {};
+  const todosLosTipos = Object.keys(TIPO_LABELS) as TipoPregunta[];
+
+  for (const tipo of todosLosTipos) {
+    const count = typed.filter((p) => p.tipo === tipo).length;
+    if (count > 0) {
+      porTipo[tipo] = count;
+    }
+  }
+
   return {
     total: typed.length,
-    seleccion_unica: typed.filter((p) => p.tipo === "seleccion_unica").length,
-    seleccion_multiple: typed.filter((p) => p.tipo === "seleccion_multiple").length,
-    emparejamiento: typed.filter((p) => p.tipo === "emparejamiento").length,
+    porTipo,
   };
 }
 
@@ -89,6 +108,10 @@ export function JsonUploader({ onPreguntasLoad, onClear, className }: JsonUpload
     if (inputRef.current) inputRef.current.value = "";
     onClear?.();
   };
+
+  const tiposPresentes = stats
+    ? (Object.keys(stats.porTipo) as TipoPregunta[])
+    : [];
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -186,21 +209,32 @@ export function JsonUploader({ onPreguntasLoad, onClear, className }: JsonUpload
               <X size={14} />
             </Button>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            {[
-              { label: "Sel. única", value: stats.seleccion_unica, color: "text-sena-blue" },
-              { label: "Sel. múltiple", value: stats.seleccion_multiple, color: "text-amber-600" },
-              { label: "Emparejamiento", value: stats.emparejamiento, color: "text-sena-green" },
-            ].map(({ label, value, color }) => (
-              <div
-                key={label}
-                className="bg-white rounded-lg p-2 border border-sena-gray-dark/10"
-              >
-                <p className={cn("text-xl font-black", color)}>{value}</p>
-                <p className="text-[10px] text-sena-gray-dark/60 leading-tight">{label}</p>
-              </div>
-            ))}
-          </div>
+          {tiposPresentes.length > 0 && (
+            <div
+              className={cn(
+                "grid gap-2 text-center",
+                tiposPresentes.length <= 3
+                  ? "grid-cols-3"
+                  : tiposPresentes.length <= 4
+                  ? "grid-cols-4"
+                  : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5",
+              )}
+            >
+              {tiposPresentes.map((tipo) => (
+                <div
+                  key={tipo}
+                  className="bg-white rounded-lg p-2 border border-sena-gray-dark/10"
+                >
+                  <p className={cn("text-xl font-black", TIPO_COLORS[tipo])}>
+                    {stats.porTipo[tipo]}
+                  </p>
+                  <p className="text-[10px] text-sena-gray-dark/60 leading-tight">
+                    {TIPO_LABELS[tipo]}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

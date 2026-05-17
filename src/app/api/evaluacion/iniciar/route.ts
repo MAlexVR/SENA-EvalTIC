@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { APP_CONFIG } from "@/lib/config";
-import { shuffleArray } from "@/lib/shuffle";
+import { prepareQuestionsForClient } from "@/lib/question-preparation";
 import { getEffectiveDates, isVigente } from "@/lib/effective-dates";
 import allQuestions from "@/data/preguntas.json";
 import fs from "fs";
@@ -11,54 +11,6 @@ const COMPLETED_EVALUATIONS_FILE = path.join(
   "src/data/evaluaciones-completadas.json",
 );
 
-// ─── Helper: selecciona y prepara preguntas para el cliente ──────────────────
-function prepareQuestionsForClient(
-  banco: any[],
-  dist: {
-    seleccion_unica: number;
-    seleccion_multiple: number;
-    emparejamiento: number;
-  },
-  aleatorizarOpciones: boolean,
-) {
-  const unicas = banco.filter((p) => p.tipo === "seleccion_unica");
-  const multiples = banco.filter((p) => p.tipo === "seleccion_multiple");
-  const emparejamiento = banco.filter((p) => p.tipo === "emparejamiento");
-
-  const seleccionadas = shuffleArray([
-    ...shuffleArray([...unicas]).slice(0, dist.seleccion_unica),
-    ...shuffleArray([...multiples]).slice(0, dist.seleccion_multiple),
-    ...shuffleArray([...emparejamiento]).slice(0, dist.emparejamiento),
-  ]);
-
-  return seleccionadas.map((p: any) => {
-    const preguntaCliente = JSON.parse(JSON.stringify(p));
-    // Normalize: support both 'texto' (external JSON) and 'enunciado' (internal) as question text
-    if (!preguntaCliente.enunciado && preguntaCliente.texto) {
-      preguntaCliente.enunciado = preguntaCliente.texto;
-    }
-    // Normalize: ensure id is always a string so client-side keying is consistent
-    preguntaCliente.id = String(preguntaCliente.id);
-    delete preguntaCliente.respuestaCorrecta;
-    delete preguntaCliente.retroalimentacion;
-
-    if (p.tipo === "seleccion_unica" || p.tipo === "seleccion_multiple") {
-      if (aleatorizarOpciones) {
-        preguntaCliente.opciones = shuffleArray([...preguntaCliente.opciones]);
-      }
-    } else if (p.tipo === "emparejamiento") {
-      const opcionesIzquierda = p.pares.map((par: any) => par.izquierda);
-      const opcionesDerecha = p.pares.map((par: any) => par.derecha);
-      preguntaCliente.izquierdas = opcionesIzquierda;
-      preguntaCliente.derechas = aleatorizarOpciones
-        ? shuffleArray([...opcionesDerecha])
-        : opcionesDerecha;
-      delete preguntaCliente.pares;
-    }
-
-    return preguntaCliente;
-  });
-}
 
 export async function POST(request: Request) {
   try {
@@ -167,11 +119,7 @@ export async function POST(request: Request) {
       const config = fichaDB.evaluacion.config as {
         timeLimitMinutes: number;
         passingScorePercentage: number;
-        distribucionPreguntas: {
-          seleccion_unica: number;
-          seleccion_multiple: number;
-          emparejamiento: number;
-        };
+        distribucionPreguntas: Record<string, number>;
         aleatorizarOpciones: boolean;
         umbralAntiplagio?: { medio: number; alto: number };
       };
