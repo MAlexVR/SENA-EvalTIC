@@ -33,7 +33,7 @@ import {
   GripVertical, Pencil, Trash2, Plus, Save, PlusCircle, Loader2, AlertCircle, FileDown, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Pregunta, TipoPregunta, Opcion, Par } from "@/types/preguntas";
+import type { Pregunta, TipoPregunta, Opcion, Par, PreguntaSeleccionUnica, PreguntaSeleccionMultiple } from "@/types/preguntas";
 import { TIPO_LABELS } from "@/types/preguntas";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -239,17 +239,17 @@ function EditPreguntaDialog({
   if (!draft) return null;
 
   const updateDraft = (update: Partial<Pregunta>) =>
-    setDraft((prev) => (prev ? { ...prev, ...update } as Pregunta : prev));
+    setDraft((prev) => (prev ? { ...prev, ...update } as unknown as Pregunta : prev));
 
   const handleTypeChange = (tipo: TipoPregunta) => {
     if (!draft) return;
     const base = { id: draft.id, enunciado: draft.enunciado, retroalimentacion: "retroalimentacion" in draft ? draft.retroalimentacion : "" };
     setDraft(newBlankPregunta(tipo));
-    setDraft((prev) => prev ? { ...prev, id: base.id, enunciado: base.enunciado, retroalimentacion: base.retroalimentacion } as Pregunta : prev);
+    setDraft((prev) => prev ? { ...prev, id: base.id, enunciado: base.enunciado, retroalimentacion: base.retroalimentacion } as unknown as Pregunta : prev);
   };
 
   const validate = (): string | null => {
-    if (!draft.enunciado.trim()) return "El texto de la pregunta es requerido.";
+    if (!(draft.enunciado ?? "").trim()) return "El texto de la pregunta es requerido.";
     if (draft.tipo === "emparejamiento") {
       if (draft.pares.length < 2) return "Se requieren al menos 2 pares.";
       if (draft.pares.some((p) => !p.izquierda.trim() || !p.derecha.trim()))
@@ -296,13 +296,13 @@ function EditPreguntaDialog({
     } else if ((draft as any).tipo === "hotspot") {
       // Hotspot has no sub-editor — JSON only. No validation needed here.
     } else {
-      const opts = draft.opciones;
+      const opts = (draft as unknown as { opciones: Opcion[] }).opciones ?? [];
       if (opts.length < 2) return "Se requieren al menos 2 opciones.";
-      if (opts.some((o) => !o.texto.trim())) return "Todas las opciones deben tener texto.";
+      if (opts.some((o: Opcion) => !o.texto.trim())) return "Todas las opciones deben tener texto.";
       if (draft.tipo === "seleccion_unica") {
-        if (!draft.respuestaCorrecta) return "Debe seleccionar una respuesta correcta.";
+        if (!(draft as PreguntaSeleccionUnica).respuestaCorrecta) return "Debe seleccionar una respuesta correcta.";
       } else {
-        if (!draft.respuestaCorrecta.length) return "Debe seleccionar al menos una respuesta correcta.";
+        if (!(draft as PreguntaSeleccionMultiple).respuestaCorrecta.length) return "Debe seleccionar al menos una respuesta correcta.";
       }
     }
     return null;
@@ -318,19 +318,24 @@ function EditPreguntaDialog({
   // ── Opción actions ──
   const addOpcion = () => {
     if (draft.tipo === "emparejamiento") return;
-    const newId = String.fromCharCode(97 + draft.opciones.length); // a, b, c...
-    updateDraft({ opciones: [...draft.opciones, { id: newId, texto: "" }] } as Partial<Pregunta>);
+    const curOpts = (draft as unknown as { opciones: Opcion[] }).opciones ?? [];
+    const newId = String.fromCharCode(97 + curOpts.length); // a, b, c...
+    updateDraft({ opciones: [...curOpts, { id: newId, texto: "" }] } as Partial<Pregunta>);
   };
 
   const updateOpcion = (idx: number, texto: string) => {
     if (draft.tipo === "emparejamiento") return;
-    const opciones = draft.opciones.map((o, i) => (i === idx ? { ...o, texto } : o));
+    const opciones = (draft as unknown as { opciones: Opcion[] }).opciones.map(
+      (o: Opcion, i: number) => (i === idx ? { ...o, texto } : o)
+    );
     updateDraft({ opciones } as Partial<Pregunta>);
   };
 
   const removeOpcion = (idx: number) => {
     if (draft.tipo === "emparejamiento") return;
-    const opciones = draft.opciones.filter((_, i) => i !== idx);
+    const opciones = (draft as unknown as { opciones: Opcion[] }).opciones.filter(
+      (_: Opcion, i: number) => i !== idx
+    );
     updateDraft({ opciones } as Partial<Pregunta>);
   };
 
@@ -1435,7 +1440,7 @@ export function PreguntasEditor({
                   pregunta={p}
                   index={idx}
                   onEdit={() => openEdit(p)}
-                  onDelete={() => handleDelete(p.id)}
+                  onDelete={() => handleDelete(String(p.id))}
                 />
               ))}
             </div>

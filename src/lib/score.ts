@@ -125,6 +125,7 @@ export function calcularCreditoPregunta(
     return correctos / totalElementos;
   }
 
+  console.warn(`[score] Tipo de pregunta desconocido: ${pregunta.tipo}`);
   return 0;
 }
 

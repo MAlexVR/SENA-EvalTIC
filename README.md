@@ -384,17 +384,17 @@ El banco se sube al crear o editar una evaluación. El archivo debe ser JSON con
 
 ### Tipos de preguntas disponibles
 
-| Tipo (`tipo`) | Nombre | Calificación | Crédito parcial |
-|---|---|---|---|
-| `seleccion_unica` | Selección única | Todo o nada | No |
-| `seleccion_multiple` | Selección múltiple | Proporcional | Sí |
-| `emparejamiento` | Emparejamiento | Proporcional | Sí |
-| `verdadero_falso` | Verdadero / Falso | Todo o nada | No |
-| `numerica` | Numérica | Todo o nada (con tolerancia) | No |
-| `ordenamiento` | Ordenamiento | Por posición correcta | Sí |
-| `completar` | Completar espacios | Por espacio correcto | Sí |
-| `clasificacion` | Clasificación | Por elemento correcto | Sí |
-| `hotspot` | Punto activo | Por zona correcta | Sí (si hay varias zonas) |
+| Tipo (`tipo`) | Nombre | Nivel Bloom | Calificación | Crédito parcial |
+|---|---|---|---|---|
+| `seleccion_unica` | Selección única | Recordar (1) | Todo o nada | No |
+| `seleccion_multiple` | Selección múltiple | Comprender (2) | Proporcional | Sí |
+| `emparejamiento` | Emparejamiento | Comprender (2) | Proporcional | Sí |
+| `verdadero_falso` | Verdadero / Falso | Recordar (1) | Todo o nada | No |
+| `numerica` | Numérica | Aplicar (3) | Todo o nada (con tolerancia) | No |
+| `ordenamiento` | Ordenamiento | Analizar (4) | Por posición correcta | Sí |
+| `completar` | Completar espacios | Comprender (2) | Por espacio correcto | Sí |
+| `clasificacion` | Clasificación | Analizar (4) | Por elemento correcto | Sí |
+| `hotspot` | Punto activo | Aplicar (3) | Por zona correcta | Sí (si hay varias zonas) |
 
 #### `verdadero_falso` — afirmación verdadera o falsa
 

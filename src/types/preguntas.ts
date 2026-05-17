@@ -58,6 +58,7 @@ export interface SegmentoEspacio {
 export interface PreguntaCompletar {
   id: string | number;
   tipo: "completar";
+  enunciado?: string;
   instruccion: string;
   segmentos: (SegmentoTexto | SegmentoEspacio)[];
   retroalimentacion?: string;
@@ -66,6 +67,7 @@ export interface PreguntaCompletar {
 export interface PreguntaOrdenamiento {
   id: string | number;
   tipo: "ordenamiento";
+  enunciado?: string;
   instruccion: string;
   elementos: { id: string; texto: string }[];
   respuestaCorrecta: string[];
@@ -83,6 +85,7 @@ export interface ZonaHotspot {
 export interface PreguntaHotspot {
   id: string | number;
   tipo: "hotspot";
+  enunciado?: string;
   instruccion: string;
   imagen: string;
   imagenAlt: string;
@@ -94,6 +97,7 @@ export interface PreguntaHotspot {
 export interface PreguntaClasificacion {
   id: string | number;
   tipo: "clasificacion";
+  enunciado?: string;
   instruccion: string;
   categorias: { id: string; etiqueta: string }[];
   elementos: { id: string; texto: string }[];
@@ -115,7 +119,13 @@ export interface PreguntaNumerica {
 export type Pregunta =
   | PreguntaSeleccionUnica
   | PreguntaSeleccionMultiple
-  | PreguntaEmparejamiento;
+  | PreguntaEmparejamiento
+  | PreguntaVerdaderoFalso
+  | PreguntaCompletar
+  | PreguntaOrdenamiento
+  | PreguntaHotspot
+  | PreguntaClasificacion
+  | PreguntaNumerica;
 
 export type TipoPregunta =
   | "seleccion_unica"
