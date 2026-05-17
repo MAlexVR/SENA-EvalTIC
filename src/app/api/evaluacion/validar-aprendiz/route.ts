@@ -112,17 +112,11 @@ export async function GET(req: NextRequest) {
 
     const cfg = ficha.evaluacion.config as {
       timeLimitMinutes?: number;
-      distribucionPreguntas?: {
-        seleccion_unica?: number;
-        seleccion_multiple?: number;
-        emparejamiento?: number;
-      };
+      distribucionPreguntas?: Record<string, number>;
     } | null;
 
     const totalPreguntas = cfg?.distribucionPreguntas
-      ? (cfg.distribucionPreguntas.seleccion_unica ?? 0) +
-        (cfg.distribucionPreguntas.seleccion_multiple ?? 0) +
-        (cfg.distribucionPreguntas.emparejamiento ?? 0)
+      ? Object.values(cfg.distribucionPreguntas).reduce((a, b) => a + b, 0)
       : null;
 
     return NextResponse.json({

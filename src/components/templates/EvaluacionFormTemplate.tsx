@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { JsonUploader } from "@/components/molecules/JsonUploader";
-import { Loader2, Save, BookOpen, Settings, CalendarDays, FileQuestion, Clock, Target, RefreshCw, CheckSquare, AlignLeft, Shuffle, ShieldAlert, FileDown } from "lucide-react";
+import { Loader2, Save, BookOpen, Settings, CalendarDays, FileQuestion, Clock, Target, RefreshCw, CheckSquare, AlignLeft, Shuffle, ShieldAlert, FileDown, ToggleLeft, Type, ListOrdered, Crosshair, LayoutGrid, Hash } from "lucide-react";
 import { utcToLocalInput, localInputToISO } from "@/lib/effective-dates";
 
 const evaluacionSchema = z.object({
@@ -38,6 +38,12 @@ const evaluacionSchema = z.object({
   seleccion_unica: z.number().min(0),
   seleccion_multiple: z.number().min(0),
   emparejamiento: z.number().min(0),
+  verdadero_falso: z.number().min(0),
+  completar: z.number().min(0),
+  ordenamiento: z.number().min(0),
+  hotspot: z.number().min(0),
+  clasificacion: z.number().min(0),
+  numerica: z.number().min(0),
   umbralMedio: z.number().int().min(1, "Mínimo 1").max(20, "Máximo 20"),
   umbralAlto: z.number().int().min(2, "Mínimo 2").max(50, "Máximo 50"),
 }).refine((d) => d.umbralAlto > d.umbralMedio, {
@@ -97,6 +103,12 @@ export function EvaluacionFormTemplate({
       seleccion_unica: 5,
       seleccion_multiple: 3,
       emparejamiento: 2,
+      verdadero_falso: 0,
+      completar: 0,
+      ordenamiento: 0,
+      hotspot: 0,
+      clasificacion: 0,
+      numerica: 0,
       umbralMedio: 2,
       umbralAlto: 3,
       ...(defaultValues ? (({ fechaInicio, fechaFin, ...rest }) => rest)(defaultValues) : {}),
@@ -106,10 +118,6 @@ export function EvaluacionFormTemplate({
   });
 
   const onSubmit = async (values: EvaluacionFormValues) => {
-    if (mode === "create" && preguntas.length === 0) {
-      setError("Debes cargar el banco de preguntas (archivo JSON) antes de guardar.");
-      return;
-    }
     setError(null);
     setIsSaving(true);
 
@@ -120,7 +128,7 @@ export function EvaluacionFormTemplate({
       codigoCompetencia: values.codigoCompetencia,
       resultadoAprendizaje: values.resultadoAprendizaje,
       codigoRA: values.codigoRA,
-      preguntas: preguntas.length > 0 ? preguntas : undefined,
+      preguntas: preguntas.length > 0 ? preguntas : [],
       fechaInicio: localInputToISO(values.fechaInicio),
       fechaFin: localInputToISO(values.fechaFin),
       maxIntentos: values.maxIntentos,
@@ -131,6 +139,12 @@ export function EvaluacionFormTemplate({
           seleccion_unica: values.seleccion_unica,
           seleccion_multiple: values.seleccion_multiple,
           emparejamiento: values.emparejamiento,
+          verdadero_falso: values.verdadero_falso,
+          completar: values.completar,
+          ordenamiento: values.ordenamiento,
+          hotspot: values.hotspot,
+          clasificacion: values.clasificacion,
+          numerica: values.numerica,
         },
         aleatorizarOpciones: true,
         umbralAntiplagio: {
@@ -157,7 +171,12 @@ export function EvaluacionFormTemplate({
         throw new Error(data.error ?? "Error al guardar la evaluación");
       }
 
-      router.push("/instructor/evaluaciones");
+      if (mode === "create" && preguntas.length === 0) {
+        const created = await res.json();
+        router.push(`/instructor/evaluaciones/${created.id}/preguntas`);
+      } else {
+        router.push("/instructor/evaluaciones");
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado");
@@ -342,6 +361,14 @@ export function EvaluacionFormTemplate({
             </div>
           </CardHeader>
           <CardContent>
+            {mode === "create" && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm mb-4">
+                <p className="font-semibold text-sena-blue">El banco de preguntas es opcional</p>
+                <p className="text-sena-gray-dark/60 text-xs mt-1">
+                  Puedes crear la evaluación sin preguntas y agregarlas manualmente desde el editor una vez creada. Si lo dejas vacío, serás redirigido al editor de preguntas automáticamente.
+                </p>
+              </div>
+            )}
             {defaultPreguntas && defaultPreguntas.length > 0 && preguntas === defaultPreguntas ? (
               <div className="bg-sena-green/5 border border-sena-green/20 rounded-xl p-4 text-sm">
                 <p className="font-semibold text-sena-green">
@@ -566,6 +593,162 @@ export function EvaluacionFormTemplate({
                     </FormItem>
                   )}
                 />
+
+                {/* Verdadero / Falso */}
+                <FormField
+                  control={form.control}
+                  name="verdadero_falso"
+                  render={({ field }) => (
+                    <FormItem className="bg-white rounded-lg border border-purple-300/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <ToggleLeft size={13} className="text-purple-600 shrink-0" />
+                        <FormLabel className="text-[11px] font-bold text-purple-600 uppercase tracking-wide">
+                          Verd. / Falso
+                        </FormLabel>
+                      </div>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 text-lg font-black text-purple-600 text-center border-purple-200"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Completar */}
+                <FormField
+                  control={form.control}
+                  name="completar"
+                  render={({ field }) => (
+                    <FormItem className="bg-white rounded-lg border border-teal-300/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Type size={13} className="text-teal-600 shrink-0" />
+                        <FormLabel className="text-[11px] font-bold text-teal-600 uppercase tracking-wide">
+                          Completar
+                        </FormLabel>
+                      </div>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 text-lg font-black text-teal-600 text-center border-teal-200"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Ordenamiento */}
+                <FormField
+                  control={form.control}
+                  name="ordenamiento"
+                  render={({ field }) => (
+                    <FormItem className="bg-white rounded-lg border border-indigo-300/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <ListOrdered size={13} className="text-indigo-600 shrink-0" />
+                        <FormLabel className="text-[11px] font-bold text-indigo-600 uppercase tracking-wide">
+                          Ordenamiento
+                        </FormLabel>
+                      </div>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 text-lg font-black text-indigo-600 text-center border-indigo-200"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Hotspot */}
+                <FormField
+                  control={form.control}
+                  name="hotspot"
+                  render={({ field }) => (
+                    <FormItem className="bg-white rounded-lg border border-rose-300/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Crosshair size={13} className="text-rose-600 shrink-0" />
+                        <FormLabel className="text-[11px] font-bold text-rose-600 uppercase tracking-wide">
+                          Punto activo
+                        </FormLabel>
+                      </div>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 text-lg font-black text-rose-600 text-center border-rose-200"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Clasificación */}
+                <FormField
+                  control={form.control}
+                  name="clasificacion"
+                  render={({ field }) => (
+                    <FormItem className="bg-white rounded-lg border border-violet-300/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <LayoutGrid size={13} className="text-violet-600 shrink-0" />
+                        <FormLabel className="text-[11px] font-bold text-violet-600 uppercase tracking-wide">
+                          Clasificación
+                        </FormLabel>
+                      </div>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 text-lg font-black text-violet-600 text-center border-violet-200"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Numérica */}
+                <FormField
+                  control={form.control}
+                  name="numerica"
+                  render={({ field }) => (
+                    <FormItem className="bg-white rounded-lg border border-emerald-300/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Hash size={13} className="text-emerald-600 shrink-0" />
+                        <FormLabel className="text-[11px] font-bold text-emerald-600 uppercase tracking-wide">
+                          Numérica
+                        </FormLabel>
+                      </div>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 text-lg font-black text-emerald-600 text-center border-emerald-200"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               {/* Live total */}
@@ -574,7 +757,13 @@ export function EvaluacionFormTemplate({
                 <span className="text-base font-black text-sena-blue">
                   {(form.watch("seleccion_unica") || 0) +
                     (form.watch("seleccion_multiple") || 0) +
-                    (form.watch("emparejamiento") || 0)}
+                    (form.watch("emparejamiento") || 0) +
+                    (form.watch("verdadero_falso") || 0) +
+                    (form.watch("completar") || 0) +
+                    (form.watch("ordenamiento") || 0) +
+                    (form.watch("hotspot") || 0) +
+                    (form.watch("clasificacion") || 0) +
+                    (form.watch("numerica") || 0)}
                 </span>
               </div>
             </div>

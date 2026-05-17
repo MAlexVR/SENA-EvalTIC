@@ -74,12 +74,10 @@ export interface PreguntaOrdenamiento {
   retroalimentacion?: string;
 }
 
-export interface ZonaHotspot {
-  id: string;
-  etiqueta: string;
-  forma: "rect" | "circle" | "polygon";
-  coordenadas: number[];
-  esCorrecta: boolean;
+export interface ZonaCorrecta {
+  cx: number;     // 0–100 (% del ancho de imagen)
+  cy: number;     // 0–100 (% del alto de imagen)
+  radio: number;  // 0–100 (% del ancho, radio de tolerancia configurable)
 }
 
 export interface PreguntaHotspot {
@@ -89,8 +87,7 @@ export interface PreguntaHotspot {
   instruccion: string;
   imagen: string;
   imagenAlt: string;
-  zonas: ZonaHotspot[];
-  respuestaCorrecta: string[];
+  zonaCorrecta: ZonaCorrecta;
   retroalimentacion?: string;
 }
 

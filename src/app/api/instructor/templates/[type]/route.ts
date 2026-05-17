@@ -53,8 +53,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
             { id: "d", texto: "Gestionar contraseñas" },
           ],
           respuestaCorrecta: ["a"],
-          retroalimentacion:
-            "El modelo OSI define un marco estándar para las comunicaciones en red dividido en 7 capas.",
+          retroalimentacion: "El modelo OSI define un marco estándar para las comunicaciones en red dividido en 7 capas.",
         },
         {
           id: "p2",
@@ -67,8 +66,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
             { id: "d", texto: "FTP" },
           ],
           respuestaCorrecta: ["a", "c"],
-          retroalimentacion:
-            "TCP y UDP operan en la capa de transporte. HTTP y FTP operan en la capa de aplicación.",
+          retroalimentacion: "TCP y UDP operan en la capa de transporte. HTTP y FTP operan en la capa de aplicación.",
         },
         {
           id: "p3",
@@ -77,17 +75,85 @@ export async function GET(_req: NextRequest, { params }: Params) {
           pares: [
             { izquierda: "Capa Física", derecha: "Transmisión de bits por el medio" },
             { izquierda: "Capa de Red", derecha: "Enrutamiento de paquetes" },
-            {
-              izquierda: "Capa de Transporte",
-              derecha: "Control de flujo extremo a extremo",
-            },
-            {
-              izquierda: "Capa de Aplicación",
-              derecha: "Interfaz con las aplicaciones del usuario",
-            },
+            { izquierda: "Capa de Transporte", derecha: "Control de flujo extremo a extremo" },
+            { izquierda: "Capa de Aplicación", derecha: "Interfaz con las aplicaciones del usuario" },
           ],
-          retroalimentacion:
-            "Cada capa del modelo OSI tiene una responsabilidad bien definida en el proceso de comunicación.",
+          retroalimentacion: "Cada capa del modelo OSI tiene una responsabilidad bien definida en el proceso de comunicación.",
+        },
+        {
+          id: "p4",
+          tipo: "verdadero_falso",
+          texto: "El protocolo UDP garantiza la entrega ordenada de los paquetes.",
+          respuestaCorrecta: ["falso"],
+          retroalimentacion: "UDP es un protocolo no orientado a conexión que NO garantiza entrega ni orden. Esa es responsabilidad de TCP.",
+        },
+        {
+          id: "p5",
+          tipo: "numerica",
+          texto: "¿Cuántas capas tiene el modelo OSI?",
+          respuestaCorrecta: 7,
+          tolerancia: 0,
+          retroalimentacion: "El modelo OSI está compuesto exactamente por 7 capas: Física, Enlace de datos, Red, Transporte, Sesión, Presentación y Aplicación.",
+        },
+        {
+          id: "p6",
+          tipo: "ordenamiento",
+          instruccion: "Ordena las capas del modelo OSI de la más baja (física) a la más alta (aplicación):",
+          elementos: [
+            { id: "e1", texto: "Capa de Red" },
+            { id: "e2", texto: "Capa Física" },
+            { id: "e3", texto: "Capa de Aplicación" },
+            { id: "e4", texto: "Capa de Transporte" },
+            { id: "e5", texto: "Capa de Enlace de datos" },
+          ],
+          respuestaCorrecta: ["e2", "e5", "e1", "e4", "e3"],
+          retroalimentacion: "El orden correcto de menor a mayor es: Física → Enlace de datos → Red → Transporte → Aplicación.",
+        },
+        {
+          id: "p7",
+          tipo: "completar",
+          instruccion: "Completa el enunciado con los términos correctos:",
+          segmentos: [
+            { tipo: "texto", contenido: "El protocolo " },
+            { tipo: "espacio", id: "s1", opciones: ["TCP", "UDP", "HTTP", "FTP"], respuestaCorrecta: "TCP" },
+            { tipo: "texto", contenido: " opera en la capa de transporte y garantiza la entrega " },
+            { tipo: "espacio", id: "s2", respuestaCorrecta: "confiable" },
+            { tipo: "texto", contenido: " de los datos." },
+          ],
+          retroalimentacion: "TCP (Transmission Control Protocol) es orientado a conexión y provee entrega confiable y ordenada.",
+        },
+        {
+          id: "p8",
+          tipo: "clasificacion",
+          instruccion: "Clasifica cada protocolo según la capa del modelo OSI en la que opera:",
+          categorias: [
+            { id: "cat1", etiqueta: "Capa de Transporte" },
+            { id: "cat2", etiqueta: "Capa de Aplicación" },
+            { id: "cat3", etiqueta: "Capa de Red" },
+          ],
+          elementos: [
+            { id: "el1", texto: "TCP" },
+            { id: "el2", texto: "HTTP" },
+            { id: "el3", texto: "IP" },
+            { id: "el4", texto: "UDP" },
+            { id: "el5", texto: "DNS" },
+            { id: "el6", texto: "ICMP" },
+          ],
+          respuestaCorrecta: {
+            cat1: ["el1", "el4"],
+            cat2: ["el2", "el5"],
+            cat3: ["el3", "el6"],
+          },
+          retroalimentacion: "TCP y UDP son de transporte; HTTP y DNS son de aplicación; IP e ICMP operan en la capa de red.",
+        },
+        {
+          id: "p9",
+          tipo: "hotspot",
+          instruccion: "En el diagrama de topología de red, haz clic sobre el dispositivo que actúa como puerta de enlace predeterminada (default gateway) para los equipos de la LAN.",
+          imagen: "",
+          imagenAlt: "Diagrama de red en estrella con router, switch central y cuatro equipos conectados",
+          zonaCorrecta: { cx: 50, cy: 20, radio: 12 },
+          retroalimentacion: "El router es el default gateway porque conecta la LAN con redes externas y enruta el tráfico saliente.",
         },
       ],
     };
@@ -104,9 +170,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (type === "verdadero_falso") {
     const template = {
       tipo: "verdadero_falso",
-      enunciado: "El sol es una estrella.",
+      texto: "El protocolo TCP garantiza la entrega ordenada y confiable de los datos.",
       respuestaCorrecta: ["verdadero"],
-      retroalimentacion: "Correcto. El sol es la estrella más cercana a la Tierra.",
+      retroalimentacion: "Correcto. TCP es un protocolo orientado a conexión que establece un canal confiable antes de transmitir datos, garantizando orden y entrega.",
     };
 
     return new NextResponse(JSON.stringify(template, null, 2), {
@@ -121,12 +187,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (type === "numerica") {
     const template = {
       tipo: "numerica",
-      enunciado: "¿Cuál es la velocidad de la luz en el vacío?",
-      respuestaCorrecta: 299792458,
+      texto: "¿Cuántas capas define el modelo OSI?",
+      respuestaCorrecta: 7,
       tolerancia: 0,
-      unidad: "m/s",
-      retroalimentacion:
-        "La velocidad de la luz en el vacío es exactamente 299,792,458 m/s.",
+      retroalimentacion: "El modelo OSI define exactamente 7 capas: Física, Enlace de datos, Red, Transporte, Sesión, Presentación y Aplicación.",
     };
 
     return new NextResponse(JSON.stringify(template, null, 2), {
@@ -141,24 +205,22 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (type === "ordenamiento") {
     const template = {
       tipo: "ordenamiento",
-      instruccion: "Ordena los pasos del método científico de forma correcta.",
+      instruccion: "Ordena las capas del modelo OSI de la más baja (física) a la más alta (aplicación):",
       elementos: [
-        { id: "e1", texto: "Observación del fenómeno" },
-        { id: "e2", texto: "Formulación de hipótesis" },
-        { id: "e3", texto: "Experimentación" },
-        { id: "e4", texto: "Análisis de resultados" },
-        { id: "e5", texto: "Conclusión" },
+        { id: "e1", texto: "Capa de Red" },
+        { id: "e2", texto: "Capa Física" },
+        { id: "e3", texto: "Capa de Aplicación" },
+        { id: "e4", texto: "Capa de Transporte" },
+        { id: "e5", texto: "Capa de Enlace de datos" },
       ],
-      respuestaCorrecta: ["e1", "e2", "e3", "e4", "e5"],
-      retroalimentacion:
-        "El método científico sigue este orden lógico de pasos.",
+      respuestaCorrecta: ["e2", "e5", "e1", "e4", "e3"],
+      retroalimentacion: "El orden correcto de menor a mayor es: Física → Enlace de datos → Red → Transporte → Aplicación.",
     };
 
     return new NextResponse(JSON.stringify(template, null, 2), {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition":
-          'attachment; filename="plantilla-ordenamiento.json"',
+        "Content-Disposition": 'attachment; filename="plantilla-ordenamiento.json"',
       },
     });
   }
@@ -167,16 +229,15 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (type === "completar") {
     const template = {
       tipo: "completar",
-      instruccion: "Completa la oración con los términos correctos.",
+      instruccion: "Completa el enunciado con los términos correctos:",
       segmentos: [
-        { tipo: "texto", contenido: "El agua se congela a " },
-        { tipo: "espacio", id: "temp", respuestaCorrecta: "0", opciones: ["0", "100", "-273"] },
-        { tipo: "texto", contenido: " grados Celsius y hierve a " },
-        { tipo: "espacio", id: "ebull", respuestaCorrecta: "100" },
-        { tipo: "texto", contenido: " grados Celsius." },
+        { tipo: "texto", contenido: "El protocolo " },
+        { tipo: "espacio", id: "s1", opciones: ["TCP", "UDP", "HTTP", "FTP"], respuestaCorrecta: "TCP" },
+        { tipo: "texto", contenido: " opera en la capa de transporte y garantiza la entrega " },
+        { tipo: "espacio", id: "s2", respuestaCorrecta: "confiable" },
+        { tipo: "texto", contenido: " de los datos." },
       ],
-      retroalimentacion:
-        "Los puntos de cambio de fase del agua a presión estándar son 0°C y 100°C.",
+      retroalimentacion: "TCP (Transmission Control Protocol) es orientado a conexión y provee entrega confiable y ordenada de los datos.",
     };
 
     return new NextResponse(JSON.stringify(template, null, 2), {
@@ -191,26 +252,26 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (type === "clasificacion") {
     const template = {
       tipo: "clasificacion",
-      instruccion: "Clasifica cada organismo en el reino al que pertenece.",
+      instruccion: "Clasifica cada protocolo según la capa del modelo OSI en la que opera:",
       categorias: [
-        { id: "c1", etiqueta: "Reino Animal" },
-        { id: "c2", etiqueta: "Reino Vegetal" },
-        { id: "c3", etiqueta: "Reino Fungi" },
+        { id: "cat1", etiqueta: "Capa de Transporte" },
+        { id: "cat2", etiqueta: "Capa de Aplicación" },
+        { id: "cat3", etiqueta: "Capa de Red" },
       ],
       elementos: [
-        { id: "e1", texto: "León" },
-        { id: "e2", texto: "Roble" },
-        { id: "e3", texto: "Champiñón" },
-        { id: "e4", texto: "Mariposa" },
-        { id: "e5", texto: "Helecho" },
+        { id: "el1", texto: "TCP" },
+        { id: "el2", texto: "HTTP" },
+        { id: "el3", texto: "IP" },
+        { id: "el4", texto: "UDP" },
+        { id: "el5", texto: "DNS" },
+        { id: "el6", texto: "ICMP" },
       ],
       respuestaCorrecta: {
-        c1: ["e1", "e4"],
-        c2: ["e2", "e5"],
-        c3: ["e3"],
+        cat1: ["el1", "el4"],
+        cat2: ["el2", "el5"],
+        cat3: ["el3", "el6"],
       },
-      retroalimentacion:
-        "Los animales pertenecen al reino Animal, las plantas al reino Vegetal y los hongos al reino Fungi.",
+      retroalimentacion: "TCP y UDP son protocolos de transporte; HTTP y DNS operan en la capa de aplicación; IP e ICMP pertenecen a la capa de red.",
     };
 
     return new NextResponse(JSON.stringify(template, null, 2), {
@@ -225,17 +286,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (type === "hotspot") {
     const template = {
       tipo: "hotspot",
-      instruccion: "Haz clic en la mitocondria de la célula.",
-      imagen: "https://res.cloudinary.com/demo/image/upload/sample.jpg",
-      imagenAlt: "Diagrama de una célula eucariota",
-      zonas: [
-        { id: "z1", etiqueta: "Mitocondria", forma: "circle", coordenadas: [120, 80, 30], esCorrecta: true },
-        { id: "z2", etiqueta: "Núcleo", forma: "rect", coordenadas: [200, 150, 80, 60], esCorrecta: false },
-        { id: "z3", etiqueta: "Vacuola", forma: "circle", coordenadas: [300, 200, 40], esCorrecta: false },
-      ],
-      respuestaCorrecta: ["z1"],
-      retroalimentacion:
-        "La mitocondria es el orgánulo responsable de la producción de ATP mediante la respiración celular.",
+      instruccion: "En el diagrama de topología de red, haz clic sobre el dispositivo que actúa como puerta de enlace predeterminada (default gateway) para los equipos de la LAN.",
+      imagen: "",
+      imagenAlt: "Diagrama de red en estrella con router, switch central y cuatro equipos conectados",
+      zonaCorrecta: { cx: 50, cy: 20, radio: 12 },
+      retroalimentacion: "El router es el default gateway porque conecta la LAN con redes externas y enruta el tráfico saliente.",
     };
 
     return new NextResponse(JSON.stringify(template, null, 2), {

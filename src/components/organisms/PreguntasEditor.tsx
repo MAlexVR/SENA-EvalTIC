@@ -100,8 +100,7 @@ function newBlankPregunta(tipo: TipoPregunta): Pregunta {
       instruccion: "",
       imagen: "",
       imagenAlt: "",
-      zonas: [],
-      respuestaCorrecta: [],
+      zonaCorrecta: { cx: 50, cy: 50, radio: 10 },
     } as unknown as Pregunta;
   }
   const opciones: Opcion[] = [
@@ -227,7 +226,7 @@ function EditPreguntaDialog({
   // Hotspot editor state (only used when tipo === "hotspot")
   const [uploadingImg, setUploadingImg] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [zonasJsonError, setZonasJsonError] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync draft when dialog opens
@@ -382,7 +381,7 @@ function EditPreguntaDialog({
               <option value="ordenamiento">Ordenamiento</option>
               <option value="completar">Completar espacios</option>
               <option value="clasificacion">Clasificación</option>
-              <option value="hotspot">Punto activo (solo JSON)</option>
+              <option value="hotspot">Punto activo</option>
             </select>
           </div>
 
@@ -1085,9 +1084,10 @@ function EditPreguntaDialog({
               instruccion?: string;
               imagen?: string;
               imagenAlt?: string;
-              zonas?: any[];
-              respuestaCorrecta?: string[];
+              zonaCorrecta?: { cx: number; cy: number; radio: number };
             };
+
+            const zona = draftHotspot.zonaCorrecta ?? { cx: 50, cy: 50, radio: 10 };
 
             const handleImageUpload = async (file: File) => {
               setUploadingImg(true);
@@ -1116,130 +1116,187 @@ function EditPreguntaDialog({
               }
             };
 
-            const handleZonasChange = (raw: string) => {
-              try {
-                const parsed = JSON.parse(raw);
-                if (!Array.isArray(parsed)) throw new Error("Debe ser un arreglo");
-                setZonasJsonError(null);
-                setDraft((prev) =>
-                  prev ? ({ ...prev, zonas: parsed } as unknown as Pregunta) : prev
-                );
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              } catch (e: any) {
-                setZonasJsonError(e?.message ?? "JSON inválido");
-              }
+            const updateZona = (field: "cx" | "cy" | "radio", value: number) => {
+              setDraft((prev) =>
+                prev
+                  ? ({
+                      ...prev,
+                      zonaCorrecta: {
+                        ...((prev as unknown as { zonaCorrecta: { cx: number; cy: number; radio: number } }).zonaCorrecta ?? { cx: 50, cy: 50, radio: 10 }),
+                        [field]: value,
+                      },
+                    } as unknown as Pregunta)
+                  : prev
+              );
             };
 
-            const zonasRaw = JSON.stringify(draftHotspot.zonas ?? [], null, 2);
+            const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const cx = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10;
+              const cy = Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 10;
+              setDraft((prev) =>
+                prev
+                  ? ({
+                      ...prev,
+                      zonaCorrecta: {
+                        ...((prev as unknown as { zonaCorrecta: { cx: number; cy: number; radio: number } }).zonaCorrecta ?? { radio: 10 }),
+                        cx,
+                        cy,
+                      },
+                    } as unknown as Pregunta)
+                  : prev
+              );
+            };
 
             return (
               <div className="space-y-3">
                 {/* Instrucción */}
                 <div className="grid gap-1.5">
-                  <Label className="text-xs font-semibold text-sena-blue">Instrucción (opcional)</Label>
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción</Label>
                   <textarea
                     className="flex min-h-[50px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
                     value={draftHotspot.instruccion ?? ""}
                     onChange={(e) =>
                       setDraft((prev) => prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev)
                     }
-                    placeholder="Ej: Haz clic en la mitocondria de la célula."
+                    placeholder="Ej: Haz clic sobre el Router en la topología de red."
                   />
                 </div>
 
                 {/* Alt text */}
                 <div className="grid gap-1.5">
-                  <Label className="text-xs font-semibold text-sena-blue">Texto alternativo de imagen (accesibilidad)</Label>
+                  <Label className="text-xs font-semibold text-sena-blue">Texto alternativo (accesibilidad)</Label>
                   <Input
                     className="h-8 text-sm"
                     value={draftHotspot.imagenAlt ?? ""}
                     onChange={(e) =>
                       setDraft((prev) => prev ? ({ ...prev, imagenAlt: e.target.value } as unknown as Pregunta) : prev)
                     }
-                    placeholder="Ej: Diagrama de una célula eucariota"
+                    placeholder="Ej: Diagrama de topología de red estrella con router central"
                   />
                 </div>
 
-                {/* Image upload */}
+                {/* Imagen — drop zone o editor visual */}
                 <div className="grid gap-1.5">
                   <Label className="text-xs font-semibold text-sena-blue">Imagen *</Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs"
-                      disabled={uploadingImg}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {uploadingImg ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                      {uploadingImg ? "Subiendo..." : "Subir imagen"}
-                    </Button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleImageUpload(file);
-                        e.target.value = "";
+
+                  {!draftHotspot.imagen ? (
+                    /* ── Drop zone ── */
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
+                      onDragLeave={() => setIsDraggingOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingOver(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file?.type.startsWith("image/")) handleImageUpload(file);
                       }}
-                    />
-                    {draftHotspot.imagen && (
-                      <span className="text-xs text-sena-green truncate max-w-[160px]" title={draftHotspot.imagen}>
-                        Imagen cargada
-                      </span>
-                    )}
-                  </div>
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 cursor-pointer transition-colors ${
+                        isDraggingOver
+                          ? "border-sena-green bg-sena-green/5"
+                          : "border-sena-gray-dark/20 hover:border-sena-blue/40 hover:bg-sena-blue/5"
+                      }`}
+                    >
+                      {uploadingImg ? (
+                        <Loader2 size={24} className="animate-spin text-sena-blue/40" />
+                      ) : (
+                        <Upload size={24} className="text-sena-gray-dark/30" />
+                      )}
+                      <p className="text-sm text-sena-gray-dark/60">
+                        {uploadingImg ? "Subiendo a Cloudinary…" : "Arrastra la imagen aquí o haz clic para seleccionar"}
+                      </p>
+                      <p className="text-[10px] text-sena-gray-dark/40">
+                        La imagen se sube a tu cuenta de Cloudinary configurada en el Perfil
+                      </p>
+                    </div>
+                  ) : (
+                    /* ── Editor visual ── */
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-sena-green font-semibold">✓ Imagen cargada</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingImg}
+                        >
+                          {uploadingImg ? <Loader2 size={12} className="animate-spin mr-1" /> : null}
+                          Cambiar imagen
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-sena-gray-dark/50">
+                        Haz clic en la imagen para posicionar el centro de la zona correcta. Ajusta el radio de tolerancia con el control deslizante.
+                      </p>
+                      {/* Imagen interactiva con overlay SVG */}
+                      <div
+                        className="relative cursor-crosshair select-none rounded-lg overflow-hidden border border-sena-gray-dark/10"
+                        onClick={handleImageClick}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={draftHotspot.imagen}
+                          alt={draftHotspot.imagenAlt ?? ""}
+                          className="max-w-full h-auto block"
+                          draggable={false}
+                        />
+                        <svg
+                          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
+                        >
+                          {/* Radio de tolerancia */}
+                          <circle
+                            cx={zona.cx}
+                            cy={zona.cy}
+                            r={zona.radio}
+                            fill="rgba(57, 169, 0, 0.12)"
+                            stroke="#39A900"
+                            strokeWidth="0.6"
+                            strokeDasharray="2 1.5"
+                          />
+                          {/* Centro — cruz */}
+                          <line x1={zona.cx - 3} y1={zona.cy} x2={zona.cx + 3} y2={zona.cy} stroke="#39A900" strokeWidth="0.8" />
+                          <line x1={zona.cx} y1={zona.cy - 3} x2={zona.cx} y2={zona.cy + 3} stroke="#39A900" strokeWidth="0.8" />
+                          <circle cx={zona.cx} cy={zona.cy} r="1" fill="#39A900" />
+                        </svg>
+                      </div>
+                      {/* Radio slider */}
+                      <div className="flex items-center gap-3 mt-1">
+                        <Label className="text-[11px] text-sena-gray-dark/60 shrink-0 w-32">Radio de tolerancia</Label>
+                        <input
+                          type="range"
+                          min={1}
+                          max={40}
+                          step={0.5}
+                          value={zona.radio}
+                          onChange={(e) => updateZona("radio", Number(e.target.value))}
+                          className="flex-1 accent-sena-green"
+                        />
+                        <span className="text-xs font-mono text-sena-blue w-10 text-right">{zona.radio}%</span>
+                      </div>
+                      <p className="text-[10px] text-sena-gray-dark/40 font-mono">
+                        Centro ({zona.cx.toFixed(1)}%, {zona.cy.toFixed(1)}%) · Radio {zona.radio}%
+                      </p>
+                    </div>
+                  )}
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
                   {uploadError && (
                     <p className="text-xs text-red-600">{uploadError}</p>
                   )}
-                  {/* Preview */}
-                  {draftHotspot.imagen && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={draftHotspot.imagen}
-                      alt={draftHotspot.imagenAlt ?? ""}
-                      className="mt-1 max-h-40 rounded border border-sena-gray-dark/10 object-contain"
-                    />
-                  )}
-                </div>
-
-                {/* Zonas JSON */}
-                <div className="grid gap-1.5">
-                  <Label className="text-xs font-semibold text-sena-blue">Zonas (JSON) *</Label>
-                  <p className="text-[10px] text-sena-gray-dark/50">
-                    {'Define las zonas clickeables. Ejemplo: { "id": "z1", "etiqueta": "Mitocondria", "forma": "circle", "coordenadas": [50, 40, 10], "esCorrecta": true }'}
-                  </p>
-                  <textarea
-                    className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none font-mono"
-                    defaultValue={zonasRaw}
-                    onChange={(e) => handleZonasChange(e.target.value)}
-                    placeholder='[{"id":"z1","etiqueta":"Zona 1","forma":"rect","coordenadas":[10,10,30,20],"esCorrecta":true}]'
-                  />
-                  {zonasJsonError && (
-                    <p className="text-xs text-red-600">JSON inválido: {zonasJsonError}</p>
-                  )}
-                </div>
-
-                {/* respuestaCorrecta — comma-separated zone IDs */}
-                <div className="grid gap-1.5">
-                  <Label className="text-xs font-semibold text-sena-blue">IDs de zonas correctas (separados por coma)</Label>
-                  <Input
-                    className="h-8 text-sm"
-                    value={(draftHotspot.respuestaCorrecta ?? []).join(", ")}
-                    onChange={(e) => {
-                      const ids = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
-                      setDraft((prev) =>
-                        prev ? ({ ...prev, respuestaCorrecta: ids } as unknown as Pregunta) : prev
-                      );
-                    }}
-                    placeholder="z1, z3"
-                  />
-                  <p className="text-[10px] text-sena-gray-dark/40">
-                    Debe coincidir con los IDs marcados como esCorrecta:true en las zonas.
-                  </p>
                 </div>
               </div>
             );

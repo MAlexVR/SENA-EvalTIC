@@ -29,6 +29,7 @@ export interface RespuestaAprendiz {
   ordenamiento?: string[];
   clasificacion?: Record<string, string[]>;
   valorNumerico?: number;
+  hotspotClick?: { x: number; y: number };
 }
 
 export interface EvaluacionState {

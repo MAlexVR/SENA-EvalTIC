@@ -95,10 +95,10 @@ export function QuestionRenderer() {
     });
   };
 
-  const handleHotspot = (ids: string[]) => {
+  const handleHotspot = (click: { x: number; y: number }) => {
     responderPregunta({
       preguntaId: qId,
-      respuestaIds: ids,
+      hotspotClick: click,
     });
   };
 
@@ -322,8 +322,7 @@ export function QuestionRenderer() {
             <HotspotRenderer
               imagen={(pregunta as any).imagen ?? ""}
               imagenAlt={(pregunta as any).imagenAlt ?? ""}
-              zonas={(pregunta as any).zonas ?? []}
-              selectedIds={respuestaActual?.respuestaIds ?? []}
+              click={respuestaActual?.hotspotClick ?? null}
               onChange={handleHotspot}
             />
           </div>

@@ -92,15 +92,13 @@ export function calcularCreditoPregunta(
   }
 
   if (pregunta.tipo === "hotspot") {
-    const zonas: any[] = pregunta.zonas ?? [];
-    const correctas = zonas.filter((z: any) => z.esCorrecta);
-    if (correctas.length === 0) return 0;
-    const selectedIds: string[] = respuestaApp.respuestaIds ?? [];
-    let aciertos = 0;
-    for (const zona of correctas) {
-      if (selectedIds.includes(zona.id)) aciertos++;
-    }
-    return aciertos / correctas.length;
+    const zona = pregunta.zonaCorrecta;
+    if (!zona) return 0;
+    const click = respuestaApp.hotspotClick;
+    if (!click) return 0;
+    const dx = click.x - zona.cx;
+    const dy = click.y - zona.cy;
+    return Math.sqrt(dx * dx + dy * dy) <= zona.radio ? 1 : 0;
   }
 
   if (pregunta.tipo === "clasificacion") {

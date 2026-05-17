@@ -28,13 +28,11 @@ export default async function EditarEvaluacionPage({ params }: Props) {
   const config = evaluacion.config as {
     timeLimitMinutes: number;
     passingScorePercentage: number;
-    distribucionPreguntas: {
-      seleccion_unica: number;
-      seleccion_multiple: number;
-      emparejamiento: number;
-    };
+    distribucionPreguntas: Record<string, number>;
     umbralAntiplagio?: { medio: number; alto: number };
   };
+
+  const dist = config.distribucionPreguntas ?? {};
 
   const defaultValues = {
     nombre: evaluacion.nombre,
@@ -52,9 +50,15 @@ export default async function EditarEvaluacionPage({ params }: Props) {
     timeLimitMinutes: config.timeLimitMinutes,
     passingScorePercentage: config.passingScorePercentage,
     maxIntentos: evaluacion.maxIntentos,
-    seleccion_unica: config.distribucionPreguntas.seleccion_unica,
-    seleccion_multiple: config.distribucionPreguntas.seleccion_multiple,
-    emparejamiento: config.distribucionPreguntas.emparejamiento,
+    seleccion_unica: dist.seleccion_unica ?? 0,
+    seleccion_multiple: dist.seleccion_multiple ?? 0,
+    emparejamiento: dist.emparejamiento ?? 0,
+    verdadero_falso: dist.verdadero_falso ?? 0,
+    completar: dist.completar ?? 0,
+    ordenamiento: dist.ordenamiento ?? 0,
+    hotspot: dist.hotspot ?? 0,
+    clasificacion: dist.clasificacion ?? 0,
+    numerica: dist.numerica ?? 0,
     umbralMedio: config.umbralAntiplagio?.medio ?? 2,
     umbralAlto: config.umbralAntiplagio?.alto ?? 3,
   };

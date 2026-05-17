@@ -45,13 +45,7 @@ export function sanitizarParaCliente(pregunta: any, tipo: TipoPregunta): any {
 
   switch (tipo) {
     case "hotspot":
-      if (Array.isArray(q.zonas)) {
-        q.zonas = q.zonas.map((z: any) => {
-          const zona = { ...z };
-          delete zona.esCorrecta;
-          return zona;
-        });
-      }
+      delete q.zonaCorrecta;
       break;
     case "completar":
       if (Array.isArray(q.segmentos)) {

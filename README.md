@@ -394,7 +394,7 @@ El banco se sube al crear o editar una evaluación. El archivo debe ser JSON con
 | `ordenamiento` | Ordenamiento | Analizar (4) | Por posición correcta | Sí |
 | `completar` | Completar espacios | Comprender (2) | Por espacio correcto | Sí |
 | `clasificacion` | Clasificación | Analizar (4) | Por elemento correcto | Sí |
-| `hotspot` | Punto activo | Aplicar (3) | Por zona correcta | Sí (si hay varias zonas) |
+| `hotspot` | Punto activo | Aplicar (3) | Todo o nada (distancia al punto ≤ radio) | No |
 
 #### `verdadero_falso` — afirmación verdadera o falsa
 
@@ -485,26 +485,30 @@ El banco se sube al crear o editar una evaluación. El archivo debe ser JSON con
 
 > El crédito es `elementos_clasificados_correctamente / total_elementos`.
 
-#### `hotspot` — hacer clic en zonas de una imagen
+#### `hotspot` — hacer clic en un punto de una imagen
+
+El aprendiz hace **un solo clic** sobre la imagen. El sistema verifica si el clic cae dentro del radio de tolerancia del punto correcto. La imagen se sube a Cloudinary desde el editor; la `zonaCorrecta` se configura visualmente haciendo clic sobre la preview.
 
 ```json
 {
   "id": "hs1",
   "tipo": "hotspot",
-  "instruccion": "Haz clic en la mitocondria de la célula.",
-  "imagen": "https://res.cloudinary.com/{cloud_name}/image/upload/evaluaciones/celula.jpg",
-  "imagenAlt": "Diagrama de una célula eucariota",
-  "zonas": [
-    { "id": "z1", "etiqueta": "Mitocondria", "forma": "circle", "coordenadas": [120, 80, 30], "esCorrecta": true },
-    { "id": "z2", "etiqueta": "Núcleo",      "forma": "rect",   "coordenadas": [200, 150, 80, 60], "esCorrecta": false },
-    { "id": "z3", "etiqueta": "Vacuola",     "forma": "circle", "coordenadas": [300, 200, 40], "esCorrecta": false }
-  ],
-  "respuestaCorrecta": ["z1"],
-  "retroalimentacion": "La mitocondria produce ATP mediante la respiración celular."
+  "instruccion": "En el diagrama de topología, haz clic sobre el dispositivo que actúa como default gateway.",
+  "imagen": "https://res.cloudinary.com/{cloud_name}/image/upload/evaluaciones/topologia-red.jpg",
+  "imagenAlt": "Diagrama de red en estrella con router, switch y cuatro PCs",
+  "zonaCorrecta": { "cx": 50, "cy": 20, "radio": 12 },
+  "retroalimentacion": "El router es el default gateway porque conecta la LAN con redes externas."
 }
 ```
 
-> **`forma`**: `"rect"` → `[x, y, ancho, alto]`; `"circle"` → `[cx, cy, radio]`; `"polygon"` → pares `[x1, y1, x2, y2, ...]`. Las coordenadas son porcentajes del viewBox 0-100. El campo `esCorrecta` es eliminado antes de enviar la pregunta al aprendiz. Si hay una sola zona correcta: todo o nada. Si hay varias: crédito proporcional.
+| Campo | Descripción |
+|-------|-------------|
+| `imagen` | URL Cloudinary (se sube desde el editor). Dejar `""` en la plantilla. |
+| `zonaCorrecta.cx` | Centro X del punto correcto, 0–100 (% del ancho de imagen) |
+| `zonaCorrecta.cy` | Centro Y del punto correcto, 0–100 (% del alto de imagen) |
+| `zonaCorrecta.radio` | Radio de tolerancia, 0–100 (% del ancho). Configurable por el instructor en el editor. |
+
+> **Calificación:** Todo o nada. Correcto si `√((click.x − cx)² + (click.y − cy)²) ≤ radio`. El aprendiz ve solo su pin; el radio de tolerancia no se muestra.
 
 #### Reglas del banco
 
