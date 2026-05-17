@@ -286,6 +286,31 @@ export default function ResultadosPage() {
       };
     }
 
+    if (q.tipo === "numerica") {
+      const unidad: string = q.unidad ?? "";
+      const unitSuffix = unidad ? ` ${unidad}` : "";
+      const valor = userAnswer.valorNumerico;
+      const userText =
+        valor !== undefined && valor !== null
+          ? `${valor}${unitSuffix}`
+          : "Sin respuesta";
+      const respuestaCorrecta: number = q.respuestaCorrecta ?? 0;
+      const tolerancia: number = q.tolerancia ?? 0;
+      const correctText =
+        status !== "correcta"
+          ? tolerancia > 0
+            ? `${respuestaCorrecta} ± ${tolerancia}${unitSuffix}`
+            : `${respuestaCorrecta}${unitSuffix}`
+          : "";
+      return {
+        status,
+        userText,
+        correctText,
+        creditoInfo: null,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
     return {
       status: "sin_responder" as const,
       userText: "-",

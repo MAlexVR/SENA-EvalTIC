@@ -761,6 +761,33 @@ export async function generatePDF(
       if (isCorrect !== "Correcta" && correcto) {
         correctTextStr = toLabel(correcto);
       }
+    } else if (q.tipo === "numerica" && ua) {
+      const unidad: string = (q as any).unidad ?? "";
+      const unitSuffix = unidad ? ` ${unidad}` : "";
+      const valor = ua.valorNumerico;
+      const displayValue =
+        valor !== undefined && valor !== null
+          ? `${valor}${unitSuffix}`
+          : "(sin respuesta)";
+
+      ctx.y = checkPage(ctx, 10);
+      doc.setFontSize(8.5);
+      doc.setFont(font, "bold");
+      tc(doc, SENA_BLUE);
+      doc.text("Su respuesta:", MARGIN + 3, ctx.y);
+      doc.setFont(font, "normal");
+      if (isCorrect === "Correcta") tc(doc, SENA_GREEN);
+      else if (isCorrect === "Incorrecta") tc(doc, RED);
+      else tc(doc, GRAY);
+      ctx.y = wrapText(ctx, displayValue, MARGIN + 38, CONTENT_W - 41, 5);
+
+      if (isCorrect !== "Correcta") {
+        const respCorrectaNum: number = (q as any).respuestaCorrecta ?? 0;
+        const tolerancia: number = (q as any).tolerancia ?? 0;
+        correctTextStr = tolerancia > 0
+          ? `${respCorrectaNum} +/- ${tolerancia}${unitSuffix}`
+          : `${respCorrectaNum}${unitSuffix}`;
+      }
     } else if (q.tipo === "emparejamiento" && ua) {
       const pares = q.pares || [];
       const emps = ua.emparejamientos || {};

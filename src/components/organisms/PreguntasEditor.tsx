@@ -50,6 +50,9 @@ function newBlankPregunta(tipo: TipoPregunta): Pregunta {
   if (tipo === "verdadero_falso") {
     return { ...base, tipo: "verdadero_falso", respuestaCorrecta: ["verdadero"] } as unknown as Pregunta;
   }
+  if (tipo === "numerica") {
+    return { ...base, tipo: "numerica", respuestaCorrecta: 0, tolerancia: 0, unidad: "" } as unknown as Pregunta;
+  }
   const opciones: Opcion[] = [
     { id: "a", texto: "" },
     { id: "b", texto: "" },
@@ -199,6 +202,13 @@ function EditPreguntaDialog({
     } else if ((draft as any).tipo === "verdadero_falso") {
       const vf = draft as unknown as { respuestaCorrecta: string[] };
       if (!vf.respuestaCorrecta?.[0]) return "Debe seleccionar la respuesta correcta.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "numerica") {
+      const num = draft as unknown as { respuestaCorrecta: number; tolerancia: number };
+      if (num.respuestaCorrecta === undefined || num.respuestaCorrecta === null || isNaN(num.respuestaCorrecta))
+        return "Debe ingresar la respuesta correcta.";
+      if (num.tolerancia === undefined || num.tolerancia === null || isNaN(num.tolerancia) || num.tolerancia < 0)
+        return "La tolerancia debe ser un número mayor o igual a 0.";
     } else {
       const opts = draft.opciones;
       if (opts.length < 2) return "Se requieren al menos 2 opciones.";
@@ -277,6 +287,7 @@ function EditPreguntaDialog({
               <option value="seleccion_multiple">Selección múltiple</option>
               <option value="emparejamiento">Emparejamiento</option>
               <option value="verdadero_falso">Verdadero / Falso</option>
+              <option value="numerica">Numérica</option>
             </select>
           </div>
 
@@ -439,6 +450,70 @@ function EditPreguntaDialog({
                       </label>
                     );
                   })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Numérica ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "numerica" && (() => {
+            const draftNum = draft as unknown as { respuestaCorrecta: number; tolerancia: number; unidad?: string };
+            return (
+              <div className="space-y-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Respuesta correcta *</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    className="h-8 text-sm"
+                    value={draftNum.respuestaCorrecta ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) =>
+                        prev
+                          ? ({ ...prev, respuestaCorrecta: parseFloat(e.target.value) } as unknown as Pregunta)
+                          : prev
+                      )
+                    }
+                    placeholder="Ej: 299792458"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Tolerancia (margen de error permitido) *</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="h-8 text-sm"
+                    value={draftNum.tolerancia ?? 0}
+                    onChange={(e) =>
+                      setDraft((prev) =>
+                        prev
+                          ? ({ ...prev, tolerancia: parseFloat(e.target.value) } as unknown as Pregunta)
+                          : prev
+                      )
+                    }
+                    placeholder="0"
+                  />
+                  <p className="text-[10px] text-sena-gray-dark/50">
+                    0 = coincidencia exacta. Ejemplo: tolerancia 5 acepta entre 95 y 105 si la respuesta es 100.
+                  </p>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Unidad (opcional)</Label>
+                  <Input
+                    type="text"
+                    className="h-8 text-sm"
+                    value={draftNum.unidad ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) =>
+                        prev
+                          ? ({ ...prev, unidad: e.target.value } as unknown as Pregunta)
+                          : prev
+                      )
+                    }
+                    placeholder="m/s"
+                  />
                 </div>
               </div>
             );

@@ -117,5 +117,25 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
   }
 
+  // ── Plantilla numerica (.json) ────────────────────────────────────────────
+  if (type === "numerica") {
+    const template = {
+      tipo: "numerica",
+      enunciado: "¿Cuál es la velocidad de la luz en el vacío?",
+      respuestaCorrecta: 299792458,
+      tolerancia: 0,
+      unidad: "m/s",
+      retroalimentacion:
+        "La velocidad de la luz en el vacío es exactamente 299,792,458 m/s.",
+    };
+
+    return new NextResponse(JSON.stringify(template, null, 2), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="plantilla-numerica.json"',
+      },
+    });
+  }
+
   return NextResponse.json({ error: "Tipo de plantilla no válido" }, { status: 400 });
 }

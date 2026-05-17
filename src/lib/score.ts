@@ -56,6 +56,16 @@ export function calcularCreditoPregunta(
     return seleccionadas[0] === correctas[0] ? 1 : 0;
   }
 
+  if (pregunta.tipo === "numerica") {
+    const valorNumerico = respuestaApp.valorNumerico;
+    // No answer or non-numeric value → 0
+    if (valorNumerico === undefined || valorNumerico === null) return 0;
+    const respuestaCorrecta: number = pregunta.respuestaCorrecta ?? 0;
+    const tolerancia: number = pregunta.tolerancia ?? 0;
+    // tolerancia=0 → exact match (diff must be exactly 0)
+    return Math.abs(valorNumerico - respuestaCorrecta) <= tolerancia ? 1 : 0;
+  }
+
   return 0;
 }
 

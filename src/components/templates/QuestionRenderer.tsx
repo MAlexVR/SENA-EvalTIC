@@ -1,6 +1,7 @@
 "use client";
 
 import { useEvaluacionStore } from "@/stores/evaluacion-store";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,6 +55,14 @@ export function QuestionRenderer() {
     responderPregunta({
       preguntaId: qId,
       respuestaIds: [valor],
+    });
+  };
+
+  const handleNumerica = (rawValue: string) => {
+    const parsed = parseFloat(rawValue);
+    responderPregunta({
+      preguntaId: qId,
+      valorNumerico: isNaN(parsed) ? undefined : parsed,
     });
   };
 
@@ -169,6 +178,40 @@ export function QuestionRenderer() {
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Renderizado de Numérica */}
+        {pregunta.tipo === "numerica" && (
+          <div className="flex flex-col gap-4">
+            {pregunta.instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {pregunta.instruccion}
+              </p>
+            )}
+            <div className="flex items-center gap-3">
+              <Label htmlFor={`numerica-${qId}`} className="text-sm font-semibold text-sena-blue shrink-0">
+                Respuesta:
+              </Label>
+              <Input
+                id={`numerica-${qId}`}
+                type="number"
+                step="any"
+                className="w-48 text-base border-sena-gray-dark/30 focus-visible:ring-sena-green"
+                value={
+                  respuestaActual?.valorNumerico !== undefined && respuestaActual.valorNumerico !== null
+                    ? String(respuestaActual.valorNumerico)
+                    : ""
+                }
+                onChange={(e) => handleNumerica(e.target.value)}
+                placeholder="0"
+              />
+              {pregunta.unidad && (
+                <span className="text-sm font-semibold text-sena-gray-dark/70 shrink-0">
+                  {pregunta.unidad}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
