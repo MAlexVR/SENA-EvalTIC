@@ -221,5 +221,30 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
   }
 
+  // ── Plantilla hotspot (.json) ─────────────────────────────────────────────
+  if (type === "hotspot") {
+    const template = {
+      tipo: "hotspot",
+      instruccion: "Haz clic en la mitocondria de la célula.",
+      imagen: "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+      imagenAlt: "Diagrama de una célula eucariota",
+      zonas: [
+        { id: "z1", etiqueta: "Mitocondria", forma: "circle", coordenadas: [120, 80, 30], esCorrecta: true },
+        { id: "z2", etiqueta: "Núcleo", forma: "rect", coordenadas: [200, 150, 80, 60], esCorrecta: false },
+        { id: "z3", etiqueta: "Vacuola", forma: "circle", coordenadas: [300, 200, 40], esCorrecta: false },
+      ],
+      respuestaCorrecta: ["z1"],
+      retroalimentacion:
+        "La mitocondria es el orgánulo responsable de la producción de ATP mediante la respiración celular.",
+    };
+
+    return new NextResponse(JSON.stringify(template, null, 2), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="plantilla-hotspot.json"',
+      },
+    });
+  }
+
   return NextResponse.json({ error: "Tipo de plantilla no válido" }, { status: 400 });
 }

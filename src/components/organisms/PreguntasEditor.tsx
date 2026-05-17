@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   DndContext,
   closestCenter,
@@ -30,7 +30,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  GripVertical, Pencil, Trash2, Plus, Save, PlusCircle, Loader2, AlertCircle, FileDown,
+  GripVertical, Pencil, Trash2, Plus, Save, PlusCircle, Loader2, AlertCircle, FileDown, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Pregunta, TipoPregunta, Opcion, Par } from "@/types/preguntas";
@@ -91,6 +91,17 @@ function newBlankPregunta(tipo: TipoPregunta): Pregunta {
         { id: genId(), texto: "" },
       ],
       respuestaCorrecta: {},
+    } as unknown as Pregunta;
+  }
+  if (tipo === "hotspot") {
+    return {
+      ...base,
+      tipo: "hotspot",
+      instruccion: "",
+      imagen: "",
+      imagenAlt: "",
+      zonas: [],
+      respuestaCorrecta: [],
     } as unknown as Pregunta;
   }
   const opciones: Opcion[] = [
@@ -213,6 +224,11 @@ function EditPreguntaDialog({
 }) {
   const [draft, setDraft] = useState<Pregunta | null>(pregunta);
   const [validationError, setValidationError] = useState<string | null>(null);
+  // Hotspot editor state (only used when tipo === "hotspot")
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [zonasJsonError, setZonasJsonError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync draft when dialog opens
   if (open && pregunta && draft?.id !== pregunta.id) {
@@ -1057,16 +1073,172 @@ function EditPreguntaDialog({
             );
           })()}
 
-          {/* ── Hotspot (solo JSON) ── */}
+          {/* ── Hotspot ── */}
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {(draft as any).tipo === "hotspot" && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 space-y-1">
-              <p className="font-bold">Solo editable vía JSON</p>
-              <p className="text-xs text-rose-600">
-                Las preguntas de tipo Punto Activo (hotspot) requieren definir zonas con coordenadas. Edita esta pregunta directamente en el archivo JSON del banco de preguntas e impórtalo.
-              </p>
-            </div>
-          )}
+          {(draft as any).tipo === "hotspot" && (() => {
+            const draftHotspot = draft as unknown as {
+              instruccion?: string;
+              imagen?: string;
+              imagenAlt?: string;
+              zonas?: any[];
+              respuestaCorrecta?: string[];
+            };
+
+            const handleImageUpload = async (file: File) => {
+              setUploadingImg(true);
+              setUploadError(null);
+              try {
+                const formData = new FormData();
+                formData.append("file", file);
+                const res = await fetch("/api/instructor/upload-image", {
+                  method: "POST",
+                  body: formData,
+                });
+                if (!res.ok) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const data = await res.json().catch(() => ({} as any));
+                  throw new Error(data?.error ?? `Error ${res.status}`);
+                }
+                const { url } = await res.json();
+                setDraft((prev) =>
+                  prev ? ({ ...prev, imagen: url } as unknown as Pregunta) : prev
+                );
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              } catch (err: any) {
+                setUploadError(err?.message ?? "Error al subir imagen. Verifique las credenciales de Cloudinary en el Perfil del instructor.");
+              } finally {
+                setUploadingImg(false);
+              }
+            };
+
+            const handleZonasChange = (raw: string) => {
+              try {
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) throw new Error("Debe ser un arreglo");
+                setZonasJsonError(null);
+                setDraft((prev) =>
+                  prev ? ({ ...prev, zonas: parsed } as unknown as Pregunta) : prev
+                );
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              } catch (e: any) {
+                setZonasJsonError(e?.message ?? "JSON inválido");
+              }
+            };
+
+            const zonasRaw = JSON.stringify(draftHotspot.zonas ?? [], null, 2);
+
+            return (
+              <div className="space-y-3">
+                {/* Instrucción */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción (opcional)</Label>
+                  <textarea
+                    className="flex min-h-[50px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={draftHotspot.instruccion ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) => prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev)
+                    }
+                    placeholder="Ej: Haz clic en la mitocondria de la célula."
+                  />
+                </div>
+
+                {/* Alt text */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Texto alternativo de imagen (accesibilidad)</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={draftHotspot.imagenAlt ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) => prev ? ({ ...prev, imagenAlt: e.target.value } as unknown as Pregunta) : prev)
+                    }
+                    placeholder="Ej: Diagrama de una célula eucariota"
+                  />
+                </div>
+
+                {/* Image upload */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Imagen *</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      disabled={uploadingImg}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {uploadingImg ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                      {uploadingImg ? "Subiendo..." : "Subir imagen"}
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    {draftHotspot.imagen && (
+                      <span className="text-xs text-sena-green truncate max-w-[160px]" title={draftHotspot.imagen}>
+                        Imagen cargada
+                      </span>
+                    )}
+                  </div>
+                  {uploadError && (
+                    <p className="text-xs text-red-600">{uploadError}</p>
+                  )}
+                  {/* Preview */}
+                  {draftHotspot.imagen && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={draftHotspot.imagen}
+                      alt={draftHotspot.imagenAlt ?? ""}
+                      className="mt-1 max-h-40 rounded border border-sena-gray-dark/10 object-contain"
+                    />
+                  )}
+                </div>
+
+                {/* Zonas JSON */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Zonas (JSON) *</Label>
+                  <p className="text-[10px] text-sena-gray-dark/50">
+                    {'Define las zonas clickeables. Ejemplo: { "id": "z1", "etiqueta": "Mitocondria", "forma": "circle", "coordenadas": [50, 40, 10], "esCorrecta": true }'}
+                  </p>
+                  <textarea
+                    className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none font-mono"
+                    defaultValue={zonasRaw}
+                    onChange={(e) => handleZonasChange(e.target.value)}
+                    placeholder='[{"id":"z1","etiqueta":"Zona 1","forma":"rect","coordenadas":[10,10,30,20],"esCorrecta":true}]'
+                  />
+                  {zonasJsonError && (
+                    <p className="text-xs text-red-600">JSON inválido: {zonasJsonError}</p>
+                  )}
+                </div>
+
+                {/* respuestaCorrecta — comma-separated zone IDs */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">IDs de zonas correctas (separados por coma)</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={(draftHotspot.respuestaCorrecta ?? []).join(", ")}
+                    onChange={(e) => {
+                      const ids = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
+                      setDraft((prev) =>
+                        prev ? ({ ...prev, respuestaCorrecta: ids } as unknown as Pregunta) : prev
+                      );
+                    }}
+                    placeholder="z1, z3"
+                  />
+                  <p className="text-[10px] text-sena-gray-dark/40">
+                    Debe coincidir con los IDs marcados como esCorrecta:true en las zonas.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Retroalimentación */}
           <div className="grid gap-1.5">

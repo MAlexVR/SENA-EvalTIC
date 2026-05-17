@@ -407,6 +407,43 @@ export default function ResultadosPage() {
       };
     }
 
+    if (q.tipo === "hotspot") {
+      const zonas: { id: string; etiqueta: string; esCorrecta?: boolean }[] = (q as any).zonas ?? [];
+      const correctas = zonas.filter((z) => z.esCorrecta);
+      const selectedIds: string[] = userAnswer.respuestaIds ?? [];
+
+      const aciertos = correctas.filter((z) => selectedIds.includes(z.id)).length;
+
+      const userText =
+        selectedIds.length > 0
+          ? selectedIds
+              .map((id) => {
+                const zona = zonas.find((z) => z.id === id);
+                const isOk = correctas.some((z) => z.id === id);
+                return `${zona?.etiqueta ?? id}${isOk ? " ✓" : " ✗"}`;
+              })
+              .join(", ")
+          : "Ninguna zona seleccionada";
+
+      const correctText =
+        status !== "correcta"
+          ? correctas.map((z) => z.etiqueta).join(", ") || "—"
+          : "";
+
+      const creditoInfo =
+        status === "parcial"
+          ? `${aciertos} de ${correctas.length} zonas correctas`
+          : null;
+
+      return {
+        status,
+        userText,
+        correctText,
+        creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
     if (q.tipo === "completar") {
       const segmentos: Array<{ tipo: "texto" | "espacio"; contenido?: string; id?: string; respuestaCorrecta?: string }> = q.segmentos ?? [];
       const espacioSegs = segmentos.filter((s) => s.tipo === "espacio") as Array<{ tipo: "espacio"; id: string; respuestaCorrecta?: string }>;

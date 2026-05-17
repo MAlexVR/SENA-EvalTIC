@@ -91,6 +91,18 @@ export function calcularCreditoPregunta(
     return correctos / espacios.length;
   }
 
+  if (pregunta.tipo === "hotspot") {
+    const zonas: any[] = pregunta.zonas ?? [];
+    const correctas = zonas.filter((z: any) => z.esCorrecta);
+    if (correctas.length === 0) return 0;
+    const selectedIds: string[] = respuestaApp.respuestaIds ?? [];
+    let aciertos = 0;
+    for (const zona of correctas) {
+      if (selectedIds.includes(zona.id)) aciertos++;
+    }
+    return aciertos / correctas.length;
+  }
+
   if (pregunta.tipo === "clasificacion") {
     const correctMap: Record<string, string[]> = pregunta.respuestaCorrecta ?? {};
     const studentMap: Record<string, string[]> = respuestaApp.clasificacion ?? {};

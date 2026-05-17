@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { OrdenamientoRenderer } from "@/components/templates/questions/OrdenamientoRenderer";
 import { CompletarRenderer } from "@/components/templates/questions/CompletarRenderer";
 import { ClasificacionRenderer } from "@/components/templates/questions/ClasificacionRenderer";
+import { HotspotRenderer } from "@/components/templates/questions/HotspotRenderer";
 
 export function QuestionRenderer() {
   const {
@@ -91,6 +92,13 @@ export function QuestionRenderer() {
     responderPregunta({
       preguntaId: qId,
       clasificacion: newClasificacion,
+    });
+  };
+
+  const handleHotspot = (ids: string[]) => {
+    responderPregunta({
+      preguntaId: qId,
+      respuestaIds: ids,
     });
   };
 
@@ -296,6 +304,27 @@ export function QuestionRenderer() {
               elementos={(pregunta as any).elementos ?? []}
               clasificacion={respuestaActual?.clasificacion ?? {}}
               onChange={handleClasificacion}
+            />
+          </div>
+        )}
+
+        {/* Renderizado de Hotspot */}
+        {pregunta.tipo === "hotspot" && (
+          <div className="flex flex-col gap-3">
+            {(pregunta as any).instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {(pregunta as any).instruccion}
+              </p>
+            )}
+            <p className="text-xs text-sena-gray-dark/50">
+              Haz clic en la zona correcta de la imagen.
+            </p>
+            <HotspotRenderer
+              imagen={(pregunta as any).imagen ?? ""}
+              imagenAlt={(pregunta as any).imagenAlt ?? ""}
+              zonas={(pregunta as any).zonas ?? []}
+              selectedIds={respuestaActual?.respuestaIds ?? []}
+              onChange={handleHotspot}
             />
           </div>
         )}
