@@ -5,6 +5,33 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y el v
 
 ---
 
+## [1.4.0] - 2026-05-17
+
+### Added
+- (preguntas) Seis nuevos tipos de pregunta: `verdadero_falso`, `numerica`, `ordenamiento`, `completar`, `clasificacion` y `hotspot`
+  - `ordenamiento`: arrastra elementos para definir el orden correcto (DnD)
+  - `completar`: rellena espacios en blanco inline con texto libre o desplegable
+  - `clasificacion`: asigna elementos a categorías mediante selector
+  - `hotspot`: imagen con zonas SVG clickeables (rect, circle, polygon); coordenadas en porcentaje 0-100
+  - `verdadero_falso`: dos botones Verdadero/Falso; sin opciones adicionales
+  - `numerica`: campo numérico con valor correcto y tolerancia configurable
+- (preguntas) Crédito parcial en `ordenamiento` (posición exacta), `completar` (por espacio), `clasificacion` (por elemento) y `hotspot` (por zona correcta)
+- (perfil) Configuración Cloudinary por instructor: Cloud Name, API Key y API Secret (encriptado) para subir imágenes de preguntas
+- (perfil) Endpoint `POST /api/instructor/upload-image` — upload de imágenes al Cloudinary del instructor desde el editor de preguntas
+- (preguntas) Seguridad: sanitización profunda elimina `zonas[].esCorrecta` (hotspot) y `segmentos[].respuestaCorrecta` (completar) antes de enviar al cliente
+- (preguntas) `prepareQuestionsForClient` extraído a `src/lib/question-preparation.ts`; compartido entre `iniciar` y `prueba` sin duplicación
+- (testing) vitest configurado como test runner; 43 pruebas unitarias para sanitización y scoring de los 9 tipos
+
+### Changed
+- (preguntas) `distribucionPreguntas` generalizado a `Record<string, number>` — acepta cualquier tipo nuevo sin cambiar el schema
+- (preguntas) Filtro de tipos en `iniciar` y `prueba` generalizado: usa las claves de `distribucionPreguntas` en vez de lista hardcodeada de 3 tipos
+- (preguntas) `JsonUploader` muestra estadísticas para los 9 tipos al cargar un banco
+
+### Docs
+- Tabla "Tipos de preguntas disponibles" en README con Nivel Bloom, método de calificación y ejemplos JSON para los 6 tipos nuevos
+
+---
+
 ## [1.3.0] - 2026-05-16
 
 ### Added
