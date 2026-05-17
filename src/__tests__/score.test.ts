@@ -127,6 +127,66 @@ describe("calcularCreditoPregunta — completar", () => {
   });
 });
 
+describe("calcularCreditoPregunta — clasificacion", () => {
+  const preguntaBase = {
+    id: "clas1",
+    tipo: "clasificacion",
+    instruccion: "Clasifica cada organismo en el reino al que pertenece.",
+    categorias: [
+      { id: "c1", etiqueta: "Reino Animal" },
+      { id: "c2", etiqueta: "Reino Vegetal" },
+      { id: "c3", etiqueta: "Reino Fungi" },
+    ],
+    elementos: [
+      { id: "e1", texto: "León" },
+      { id: "e2", texto: "Roble" },
+      { id: "e3", texto: "Champiñón" },
+      { id: "e4", texto: "Mariposa" },
+      { id: "e5", texto: "Helecho" },
+    ],
+    respuestaCorrecta: {
+      c1: ["e1", "e4"],
+      c2: ["e2", "e5"],
+      c3: ["e3"],
+    },
+  };
+
+  it("retorna 1 cuando todos los elementos están clasificados correctamente", () => {
+    const respuesta = {
+      preguntaId: "clas1",
+      clasificacion: { c1: ["e1", "e4"], c2: ["e2", "e5"], c3: ["e3"] },
+    };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(1);
+  });
+
+  it("retorna 0.6 cuando 3 de 5 elementos están en la categoría correcta", () => {
+    // e1→c1✓, e4→c1✓, e2→c2✓, e5→c3✗(correct=c2), e3→c2✗(correct=c3)
+    const respuesta = {
+      preguntaId: "clas1",
+      clasificacion: { c1: ["e1", "e4"], c2: ["e2", "e3"], c3: ["e5"] },
+    };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0.6);
+  });
+
+  it("retorna 0 cuando todos los elementos están en categorías incorrectas", () => {
+    // Correct: c1=[e1,e4], c2=[e2,e5], c3=[e3]
+    // Student: c1=[e2,e3], c2=[e4,e3] — wait, we need none to match
+    // c1 should have e1,e4 → put e2,e3 there (wrong)
+    // c2 should have e2,e5 → put e1,e4 there (wrong)
+    // c3 should have e3 → put e5 there (wrong)
+    const respuesta = {
+      preguntaId: "clas1",
+      clasificacion: { c1: ["e2", "e3"], c2: ["e1", "e4"], c3: ["e5"] },
+    };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  });
+
+  it("retorna 0 cuando clasificacion está vacío (sin respuesta)", () => {
+    const respuesta = { preguntaId: "clas1", clasificacion: {} };
+    expect(calcularCreditoPregunta(preguntaBase, respuesta)).toBe(0);
+  });
+});
+
 describe("calcularCreditoPregunta — verdadero_falso", () => {
   const pregunta = {
     id: "vf1",

@@ -187,5 +187,39 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
   }
 
+  // ── Plantilla clasificacion (.json) ──────────────────────────────────────
+  if (type === "clasificacion") {
+    const template = {
+      tipo: "clasificacion",
+      instruccion: "Clasifica cada organismo en el reino al que pertenece.",
+      categorias: [
+        { id: "c1", etiqueta: "Reino Animal" },
+        { id: "c2", etiqueta: "Reino Vegetal" },
+        { id: "c3", etiqueta: "Reino Fungi" },
+      ],
+      elementos: [
+        { id: "e1", texto: "León" },
+        { id: "e2", texto: "Roble" },
+        { id: "e3", texto: "Champiñón" },
+        { id: "e4", texto: "Mariposa" },
+        { id: "e5", texto: "Helecho" },
+      ],
+      respuestaCorrecta: {
+        c1: ["e1", "e4"],
+        c2: ["e2", "e5"],
+        c3: ["e3"],
+      },
+      retroalimentacion:
+        "Los animales pertenecen al reino Animal, las plantas al reino Vegetal y los hongos al reino Fungi.",
+    };
+
+    return new NextResponse(JSON.stringify(template, null, 2), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="plantilla-clasificacion.json"',
+      },
+    });
+  }
+
   return NextResponse.json({ error: "Tipo de plantilla no válido" }, { status: 400 });
 }

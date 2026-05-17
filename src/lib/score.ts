@@ -91,6 +91,28 @@ export function calcularCreditoPregunta(
     return correctos / espacios.length;
   }
 
+  if (pregunta.tipo === "clasificacion") {
+    const correctMap: Record<string, string[]> = pregunta.respuestaCorrecta ?? {};
+    const studentMap: Record<string, string[]> = respuestaApp.clasificacion ?? {};
+    // Build element → correct category mapping
+    const elementoACategoria: Record<string, string> = {};
+    for (const [catId, elementos] of Object.entries(correctMap)) {
+      for (const elemId of (elementos as string[])) {
+        elementoACategoria[elemId] = catId;
+      }
+    }
+    const totalElementos = Object.keys(elementoACategoria).length;
+    if (totalElementos === 0) return 0;
+    let correctos = 0;
+    // Check student's classification
+    for (const [catId, elementos] of Object.entries(studentMap)) {
+      for (const elemId of (elementos as string[])) {
+        if (elementoACategoria[elemId] === catId) correctos++;
+      }
+    }
+    return correctos / totalElementos;
+  }
+
   return 0;
 }
 

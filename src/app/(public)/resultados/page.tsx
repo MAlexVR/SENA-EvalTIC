@@ -348,6 +348,65 @@ export default function ResultadosPage() {
       };
     }
 
+    if (q.tipo === "clasificacion") {
+      const categorias: { id: string; etiqueta: string }[] = q.categorias ?? [];
+      const elementos: { id: string; texto: string }[] = q.elementos ?? [];
+      const correctMap: Record<string, string[]> = q.respuestaCorrecta ?? {};
+      const studentMap: Record<string, string[]> = userAnswer.clasificacion ?? {};
+
+      // Build element → correct category map
+      const elementoToCorrectCat: Record<string, string> = {};
+      for (const [catId, arr] of Object.entries(correctMap)) {
+        for (const elemId of arr as string[]) {
+          elementoToCorrectCat[elemId] = catId;
+        }
+      }
+      // Build element → student category map
+      const elementoToStudentCat: Record<string, string> = {};
+      for (const [catId, arr] of Object.entries(studentMap)) {
+        for (const elemId of arr as string[]) {
+          elementoToStudentCat[elemId] = catId;
+        }
+      }
+
+      const catLabel = (catId: string) =>
+        categorias.find((c) => c.id === catId)?.etiqueta ?? catId;
+
+      const aciertos = elementos.filter(
+        (e) => elementoToStudentCat[e.id] === elementoToCorrectCat[e.id],
+      ).length;
+
+      const userText = elementos
+        .map((e) => {
+          const studentCat = elementoToStudentCat[e.id];
+          const correctCat = elementoToCorrectCat[e.id];
+          const isOk = studentCat === correctCat;
+          const assigned = studentCat ? catLabel(studentCat) : "Sin clasificar";
+          return `${e.texto} → ${assigned}${isOk ? " ✓" : " ✗"}`;
+        })
+        .join(" | ");
+
+      const correctText =
+        status !== "correcta"
+          ? elementos
+              .map((e) => `${e.texto} → ${catLabel(elementoToCorrectCat[e.id] ?? "")}`)
+              .join(" | ")
+          : "";
+
+      const creditoInfo =
+        status === "parcial"
+          ? `${aciertos} de ${elementos.length} elementos correctos`
+          : null;
+
+      return {
+        status,
+        userText: userText || "Sin respuesta",
+        correctText,
+        creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
     if (q.tipo === "completar") {
       const segmentos: Array<{ tipo: "texto" | "espacio"; contenido?: string; id?: string; respuestaCorrecta?: string }> = q.segmentos ?? [];
       const espacioSegs = segmentos.filter((s) => s.tipo === "espacio") as Array<{ tipo: "espacio"; id: string; respuestaCorrecta?: string }>;

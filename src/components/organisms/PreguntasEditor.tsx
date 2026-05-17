@@ -75,6 +75,24 @@ function newBlankPregunta(tipo: TipoPregunta): Pregunta {
       segmentos: [],
     } as unknown as Pregunta;
   }
+  if (tipo === "clasificacion") {
+    const c1 = genId();
+    const c2 = genId();
+    return {
+      ...base,
+      tipo: "clasificacion",
+      instruccion: "",
+      categorias: [
+        { id: c1, etiqueta: "" },
+        { id: c2, etiqueta: "" },
+      ],
+      elementos: [
+        { id: genId(), texto: "" },
+        { id: genId(), texto: "" },
+      ],
+      respuestaCorrecta: {},
+    } as unknown as Pregunta;
+  }
   const opciones: Opcion[] = [
     { id: "a", texto: "" },
     { id: "b", texto: "" },
@@ -243,6 +261,24 @@ function EditPreguntaDialog({
       if (espacios.length === 0) return "Debe incluir al menos un espacio [[id]] en la oración.";
       const espaciosInvalidos = espacios.filter((s: any) => !s.respuestaCorrecta?.trim());
       if (espaciosInvalidos.length > 0) return "Todos los espacios deben tener una respuesta correcta.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "clasificacion") {
+      const clas = draft as unknown as {
+        categorias: { id: string; etiqueta: string }[];
+        elementos: { id: string; texto: string }[];
+        respuestaCorrecta: Record<string, string[]>;
+      };
+      if (!clas.categorias || clas.categorias.length < 2) return "Se requieren al menos 2 categorías.";
+      if (clas.categorias.some((c) => !c.etiqueta.trim())) return "Todas las categorías deben tener una etiqueta.";
+      if (!clas.elementos || clas.elementos.length < 2) return "Se requieren al menos 2 elementos.";
+      if (clas.elementos.some((e) => !e.texto.trim())) return "Todos los elementos deben tener texto.";
+      const allAssigned = clas.elementos.every((e) =>
+        Object.values(clas.respuestaCorrecta).some((arr) => arr.includes(e.id))
+      );
+      if (!allAssigned) return "Todos los elementos deben estar asignados a una categoría en la respuesta correcta.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "hotspot") {
+      // Hotspot has no sub-editor — JSON only. No validation needed here.
     } else {
       const opts = draft.opciones;
       if (opts.length < 2) return "Se requieren al menos 2 opciones.";
@@ -324,6 +360,8 @@ function EditPreguntaDialog({
               <option value="numerica">Numérica</option>
               <option value="ordenamiento">Ordenamiento</option>
               <option value="completar">Completar espacios</option>
+              <option value="clasificacion">Clasificación</option>
+              <option value="hotspot">Punto activo (solo JSON)</option>
             </select>
           </div>
 
@@ -812,6 +850,223 @@ function EditPreguntaDialog({
               </div>
             );
           })()}
+
+          {/* ── Clasificacion ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "clasificacion" && (() => {
+            const draftClas = draft as unknown as {
+              instruccion?: string;
+              categorias: { id: string; etiqueta: string }[];
+              elementos: { id: string; texto: string }[];
+              respuestaCorrecta: Record<string, string[]>;
+            };
+
+            const addCategoria = () => {
+              const newId = genId();
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, categorias: [...draftClas.categorias, { id: newId, etiqueta: "" }] } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const updateCategoria = (idx: number, etiqueta: string) => {
+              const newCategorias = draftClas.categorias.map((c, i) => (i === idx ? { ...c, etiqueta } : c));
+              setDraft((prev) => prev ? ({ ...prev, categorias: newCategorias } as unknown as Pregunta) : prev);
+            };
+
+            const removeCategoria = (idx: number) => {
+              const removed = draftClas.categorias[idx];
+              const newCategorias = draftClas.categorias.filter((_, i) => i !== idx);
+              // Remove removed category from respuestaCorrecta
+              const newRC = { ...draftClas.respuestaCorrecta };
+              delete newRC[removed.id];
+              setDraft((prev) =>
+                prev ? ({ ...prev, categorias: newCategorias, respuestaCorrecta: newRC } as unknown as Pregunta) : prev
+              );
+            };
+
+            const addElemento = () => {
+              const newId = genId();
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, elementos: [...draftClas.elementos, { id: newId, texto: "" }] } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const updateElemento = (idx: number, texto: string) => {
+              const newElementos = draftClas.elementos.map((e, i) => (i === idx ? { ...e, texto } : e));
+              setDraft((prev) => prev ? ({ ...prev, elementos: newElementos } as unknown as Pregunta) : prev);
+            };
+
+            const removeElemento = (idx: number) => {
+              const removed = draftClas.elementos[idx];
+              const newElementos = draftClas.elementos.filter((_, i) => i !== idx);
+              // Remove element from respuestaCorrecta
+              const newRC: Record<string, string[]> = {};
+              for (const [catId, arr] of Object.entries(draftClas.respuestaCorrecta)) {
+                newRC[catId] = (arr as string[]).filter((id) => id !== removed.id);
+              }
+              setDraft((prev) =>
+                prev ? ({ ...prev, elementos: newElementos, respuestaCorrecta: newRC } as unknown as Pregunta) : prev
+              );
+            };
+
+            const assignElemento = (elementoId: string, categoriaId: string) => {
+              const newRC: Record<string, string[]> = {};
+              // Remove element from all categories first
+              for (const cat of draftClas.categorias) {
+                newRC[cat.id] = (draftClas.respuestaCorrecta[cat.id] ?? []).filter((id) => id !== elementoId);
+              }
+              // Assign to new category
+              if (categoriaId && categoriaId !== "__none__") {
+                newRC[categoriaId] = [...(newRC[categoriaId] ?? []), elementoId];
+              }
+              setDraft((prev) => prev ? ({ ...prev, respuestaCorrecta: newRC } as unknown as Pregunta) : prev);
+            };
+
+            // Build element → current assigned category (from respuestaCorrecta)
+            const elementoToCategoria: Record<string, string> = {};
+            for (const [catId, arr] of Object.entries(draftClas.respuestaCorrecta)) {
+              for (const elemId of (arr as string[])) {
+                elementoToCategoria[elemId] = catId;
+              }
+            }
+
+            return (
+              <div className="space-y-3">
+                {/* Instruccion */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción (opcional)</Label>
+                  <textarea
+                    className="flex min-h-[50px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={draftClas.instruccion ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) => prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev)
+                    }
+                    placeholder="Ej: Clasifica cada organismo en el reino al que pertenece."
+                  />
+                </div>
+
+                {/* Categorías */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-sena-blue">Categorías *</Label>
+                  {draftClas.categorias.map((cat, idx) => (
+                    <div key={cat.id} className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-teal-600 w-5 text-center shrink-0">{idx + 1}</span>
+                      <Input
+                        className="h-8 text-sm flex-1"
+                        value={cat.etiqueta}
+                        onChange={(e) => updateCategoria(idx, e.target.value)}
+                        placeholder={`Categoría ${idx + 1}`}
+                      />
+                      {draftClas.categorias.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:bg-red-50 shrink-0"
+                          onClick={() => removeCategoria(idx)}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-sena-green hover:text-sena-green-dark h-7"
+                    onClick={addCategoria}
+                  >
+                    <Plus size={12} />
+                    Agregar categoría
+                  </Button>
+                </div>
+
+                {/* Elementos */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-sena-blue">Elementos *</Label>
+                  {draftClas.elementos.map((elem, idx) => (
+                    <div key={elem.id} className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-sena-gray-dark/40 w-5 text-center shrink-0">{idx + 1}</span>
+                      <Input
+                        className="h-8 text-sm flex-1"
+                        value={elem.texto}
+                        onChange={(e) => updateElemento(idx, e.target.value)}
+                        placeholder={`Elemento ${idx + 1}`}
+                      />
+                      {draftClas.elementos.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:bg-red-50 shrink-0"
+                          onClick={() => removeElemento(idx)}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-sena-green hover:text-sena-green-dark h-7"
+                    onClick={addElemento}
+                  >
+                    <Plus size={12} />
+                    Agregar elemento
+                  </Button>
+                </div>
+
+                {/* Respuesta correcta — assign each element to a category */}
+                {draftClas.elementos.length > 0 && draftClas.categorias.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-sena-blue">
+                      Respuesta correcta — asignar cada elemento a su categoría *
+                    </Label>
+                    {draftClas.elementos.map((elem) => {
+                      const currentCat = elementoToCategoria[elem.id] ?? "__none__";
+                      return (
+                        <div key={elem.id} className="flex items-center gap-2">
+                          <span className="text-xs text-sena-gray-dark/70 flex-1 truncate">
+                            {elem.texto || <span className="italic">(sin texto)</span>}
+                          </span>
+                          <select
+                            className="h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm w-44 shrink-0"
+                            value={currentCat}
+                            onChange={(e) => assignElemento(elem.id, e.target.value)}
+                          >
+                            <option value="__none__">— Sin asignar —</option>
+                            {draftClas.categorias.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.etiqueta || `Categoría ${draftClas.categorias.indexOf(cat) + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Hotspot (solo JSON) ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "hotspot" && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 space-y-1">
+              <p className="font-bold">Solo editable vía JSON</p>
+              <p className="text-xs text-rose-600">
+                Las preguntas de tipo Punto Activo (hotspot) requieren definir zonas con coordenadas. Edita esta pregunta directamente en el archivo JSON del banco de preguntas e impórtalo.
+              </p>
+            </div>
+          )}
 
           {/* Retroalimentación */}
           <div className="grid gap-1.5">
