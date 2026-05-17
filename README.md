@@ -382,6 +382,130 @@ El banco se sube al crear o editar una evaluación. El archivo debe ser JSON con
 
 > No lleva `opciones` ni `respuestaCorrecta` — la respuesta correcta se deriva del orden de `pares`. La columna derecha se aleatoriza al presentar la evaluación. El puntaje es proporcional a los pares emparejados correctamente.
 
+### Tipos de preguntas disponibles
+
+| Tipo (`tipo`) | Nombre | Calificación | Crédito parcial |
+|---|---|---|---|
+| `seleccion_unica` | Selección única | Todo o nada | No |
+| `seleccion_multiple` | Selección múltiple | Proporcional | Sí |
+| `emparejamiento` | Emparejamiento | Proporcional | Sí |
+| `verdadero_falso` | Verdadero / Falso | Todo o nada | No |
+| `numerica` | Numérica | Todo o nada (con tolerancia) | No |
+| `ordenamiento` | Ordenamiento | Por posición correcta | Sí |
+| `completar` | Completar espacios | Por espacio correcto | Sí |
+| `clasificacion` | Clasificación | Por elemento correcto | Sí |
+| `hotspot` | Punto activo | Por zona correcta | Sí (si hay varias zonas) |
+
+#### `verdadero_falso` — afirmación verdadera o falsa
+
+```json
+{
+  "id": "vf1",
+  "tipo": "verdadero_falso",
+  "enunciado": "El sol es una estrella.",
+  "respuestaCorrecta": ["verdadero"],
+  "retroalimentacion": "El sol es la estrella más cercana a la Tierra."
+}
+```
+
+#### `numerica` — respuesta numérica con tolerancia
+
+```json
+{
+  "id": "num1",
+  "tipo": "numerica",
+  "enunciado": "¿Cuál es la velocidad de la luz en el vacío?",
+  "respuestaCorrecta": 299792458,
+  "tolerancia": 0,
+  "unidad": "m/s",
+  "retroalimentacion": "La velocidad de la luz en el vacío es exactamente 299,792,458 m/s."
+}
+```
+
+> `tolerancia: 0` exige coincidencia exacta. `tolerancia: 5` acepta cualquier valor entre `respuestaCorrecta - 5` y `respuestaCorrecta + 5`.
+
+#### `ordenamiento` — ordenar elementos en la secuencia correcta
+
+```json
+{
+  "id": "ord1",
+  "tipo": "ordenamiento",
+  "instruccion": "Ordena los pasos del método científico.",
+  "elementos": [
+    { "id": "e1", "texto": "Observación" },
+    { "id": "e2", "texto": "Hipótesis" },
+    { "id": "e3", "texto": "Experimentación" },
+    { "id": "e4", "texto": "Conclusión" }
+  ],
+  "respuestaCorrecta": ["e1", "e2", "e3", "e4"],
+  "retroalimentacion": "El método científico sigue este orden lógico."
+}
+```
+
+> Los elementos se presentan en orden aleatorio al aprendiz. El crédito es `posiciones_correctas / total`.
+
+#### `completar` — llenar espacios en blanco
+
+```json
+{
+  "id": "comp1",
+  "tipo": "completar",
+  "instruccion": "Completa la oración.",
+  "segmentos": [
+    { "tipo": "texto", "contenido": "El agua hierve a " },
+    { "tipo": "espacio", "id": "temp", "respuestaCorrecta": "100", "opciones": ["0", "100", "-273"] },
+    { "tipo": "texto", "contenido": " grados Celsius." }
+  ],
+  "retroalimentacion": "El punto de ebullición del agua a presión estándar es 100 °C."
+}
+```
+
+> Si `opciones` está vacío, el aprendiz escribe libremente. El crédito es `espacios_correctos / total_espacios`.
+
+#### `clasificacion` — asignar elementos a categorías
+
+```json
+{
+  "id": "clas1",
+  "tipo": "clasificacion",
+  "instruccion": "Clasifica cada organismo en su reino.",
+  "categorias": [
+    { "id": "c1", "etiqueta": "Reino Animal" },
+    { "id": "c2", "etiqueta": "Reino Vegetal" }
+  ],
+  "elementos": [
+    { "id": "e1", "texto": "León" },
+    { "id": "e2", "texto": "Roble" },
+    { "id": "e3", "texto": "Mariposa" }
+  ],
+  "respuestaCorrecta": { "c1": ["e1", "e3"], "c2": ["e2"] },
+  "retroalimentacion": "Los animales pertenecen al reino Animal, las plantas al reino Vegetal."
+}
+```
+
+> El crédito es `elementos_clasificados_correctamente / total_elementos`.
+
+#### `hotspot` — hacer clic en zonas de una imagen
+
+```json
+{
+  "id": "hs1",
+  "tipo": "hotspot",
+  "instruccion": "Haz clic en la mitocondria de la célula.",
+  "imagen": "https://res.cloudinary.com/{cloud_name}/image/upload/evaluaciones/celula.jpg",
+  "imagenAlt": "Diagrama de una célula eucariota",
+  "zonas": [
+    { "id": "z1", "etiqueta": "Mitocondria", "forma": "circle", "coordenadas": [120, 80, 30], "esCorrecta": true },
+    { "id": "z2", "etiqueta": "Núcleo",      "forma": "rect",   "coordenadas": [200, 150, 80, 60], "esCorrecta": false },
+    { "id": "z3", "etiqueta": "Vacuola",     "forma": "circle", "coordenadas": [300, 200, 40], "esCorrecta": false }
+  ],
+  "respuestaCorrecta": ["z1"],
+  "retroalimentacion": "La mitocondria produce ATP mediante la respiración celular."
+}
+```
+
+> **`forma`**: `"rect"` → `[x, y, ancho, alto]`; `"circle"` → `[cx, cy, radio]`; `"polygon"` → pares `[x1, y1, x2, y2, ...]`. Las coordenadas son porcentajes del viewBox 0-100. El campo `esCorrecta` es eliminado antes de enviar la pregunta al aprendiz. Si hay una sola zona correcta: todo o nada. Si hay varias: crédito proporcional.
+
 #### Reglas del banco
 
 - Los `id` de preguntas deben ser únicos dentro del archivo.
