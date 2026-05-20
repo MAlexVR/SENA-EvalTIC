@@ -7,18 +7,11 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
-if (process.env.NODE_ENV === "production" && !process.env.ENCRYPTION_KEY) {
-  throw new Error(
-    "[crypto] ENCRYPTION_KEY es requerida en producción. " +
-    "Genera una con: openssl rand -base64 32",
-  );
-}
-
 function getKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key || key.length !== 64) {
     throw new Error(
-      "ENCRYPTION_KEY debe ser exactamente 64 caracteres hex (32 bytes). " +
+      "[crypto] ENCRYPTION_KEY debe ser exactamente 64 caracteres hex (32 bytes). " +
         "Generar con: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
     );
   }
