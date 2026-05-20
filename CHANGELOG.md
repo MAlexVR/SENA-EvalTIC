@@ -5,6 +5,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y el v
 
 ---
 
+## [1.5.1] - 2026-05-20
+
+### Fixed
+- (antiplagio) Incidencias de intentos anteriores ya no contaminan intentos nuevos — el conteo filtra por `registradoEn >= sesion.iniciadoEn`
+- (evaluacion) Aprendiz que respondía solo 6 de 10 preguntas podía aprobar — puntaje ahora se calcula sobre el total esperado según `distribucionPreguntas`, no sobre las respondidas
+- (evaluacion) Rama legacy corregida con el mismo denominador `totalEsperado` (afectaba instalaciones sin `USE_DB_BACKEND`)
+- (evaluacion) Carga infinita al finalizar — fetch a `/api/evaluacion/finalizar` ahora aborta tras 30 s con mensaje claro
+- (seguridad) `finalizar` rechaza con 400 cuando `fichaId` está presente pero no existe `SesionEvaluacion` (modo normal), previniendo evasión del antiplagio por conteo sin filtro de fecha
+
+### Changed
+- (antiplagio) Refactor de `anulandoRef` → dos refs con responsabilidades separadas: `anulacionEnProgresoRef` (previene envíos concurrentes) y `anulacionExitosaRef` (bloqueo permanente post-éxito); elimina race condition en reintento tras timeout
+
+---
+
 ## [1.5.0] - 2026-05-20
 
 ### Added
