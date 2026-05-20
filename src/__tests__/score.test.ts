@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcularCreditoPregunta } from "@/lib/score";
+import { calcularCreditoPregunta, calcularPuntaje } from "@/lib/score";
 
 describe("calcularCreditoPregunta — numerica", () => {
   const preguntaBase = {
@@ -274,5 +274,77 @@ describe("calcularCreditoPregunta — verdadero_falso", () => {
   it("retorna 0 cuando respuestaIds es un arreglo vacío", () => {
     const respuesta = { preguntaId: "vf1", respuestaIds: [] };
     expect(calcularCreditoPregunta(pregunta, respuesta)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calcularPuntaje — función de agregación central
+// ---------------------------------------------------------------------------
+
+const preguntaUnica = (id: string) => ({
+  id,
+  tipo: "seleccion_unica",
+  enunciado: `Pregunta ${id}`,
+  opciones: [{ id: "a", texto: "A" }, { id: "b", texto: "B" }],
+  respuestaCorrecta: ["a"],
+});
+
+describe("calcularPuntaje — denominador con totalEsperado", () => {
+  it("usa preguntas.length como denominador cuando totalEsperado no se pasa (compatibilidad hacia atrás)", () => {
+    const preguntas = [preguntaUnica("1"), preguntaUnica("2")];
+    const respuestas = {
+      "1": { preguntaId: "1", respuestaIds: ["a"] },
+      "2": { preguntaId: "2", respuestaIds: ["a"] },
+    };
+    const res = calcularPuntaje(preguntas, respuestas, 70);
+    expect(res.puntajeTotal).toBe(100);
+    expect(res.totalPreguntas).toBe(2);
+    expect(res.aprobado).toBe(true);
+  });
+
+  it("usa totalEsperado como denominador cuando se pasa — preguntas no respondidas penalizan", () => {
+    // Aprendiz responde 6/10 correctamente — bug original daba puntaje 100
+    const preguntas = Array.from({ length: 6 }, (_, i) => preguntaUnica(String(i + 1)));
+    const respuestas = Object.fromEntries(
+      preguntas.map((p) => [p.id, { preguntaId: p.id, respuestaIds: ["a"] }]),
+    );
+    const res = calcularPuntaje(preguntas, respuestas, 70, 10);
+    expect(res.puntajeTotal).toBe(60);
+    expect(res.totalPreguntas).toBe(10);
+    expect(res.aprobado).toBe(false);
+  });
+
+  it("totalEsperado igual a preguntas.length no altera el resultado (caso neutro)", () => {
+    const preguntas = Array.from({ length: 10 }, (_, i) => preguntaUnica(String(i + 1)));
+    const respuestas = Object.fromEntries(
+      preguntas.slice(0, 7).map((p) => [p.id, { preguntaId: p.id, respuestaIds: ["a"] }]),
+    );
+    const res = calcularPuntaje(preguntas, respuestas, 70, 10);
+    expect(res.puntajeTotal).toBe(70);
+    expect(res.aprobado).toBe(true);
+    expect(res.totalPreguntas).toBe(10);
+  });
+
+  it("preguntasIncorrectas incluye las preguntas no respondidas cuando totalEsperado > preguntas respondidas", () => {
+    // 4 respondidas correctamente, 6 sin responder → 6 incorrectas
+    const preguntas = Array.from({ length: 4 }, (_, i) => preguntaUnica(String(i + 1)));
+    const respuestas = Object.fromEntries(
+      preguntas.map((p) => [p.id, { preguntaId: p.id, respuestaIds: ["a"] }]),
+    );
+    const res = calcularPuntaje(preguntas, respuestas, 70, 10);
+    expect(res.preguntasCorrectas).toBe(4);
+    expect(res.preguntasIncorrectas).toBe(6);
+    expect(res.totalPreguntas).toBe(10);
+  });
+
+  it("sin totalEsperado el denominador es preguntas.length — compatibilidad hacia atrás del parámetro opcional", () => {
+    const preguntas = Array.from({ length: 6 }, (_, i) => preguntaUnica(String(i + 1)));
+    const respuestas = Object.fromEntries(
+      preguntas.map((p) => [p.id, { preguntaId: p.id, respuestaIds: ["a"] }]),
+    );
+    // Sin totalEsperado el denominador es 6 → 6/6 = 100 (el bug original)
+    const res = calcularPuntaje(preguntas, respuestas, 70);
+    expect(res.puntajeTotal).toBe(100);
+    expect(res.totalPreguntas).toBe(6);
   });
 });

@@ -117,18 +117,22 @@ export async function POST(request: NextRequest) {
           )
         : (tiempoUsado ?? 0);
 
-      // M3 — Contar incidencias del intento actual (filtradas por inicio de sesión
-      // para evitar que incidencias de intentos anteriores contaminen el nuevo intento)
-      const incidenciasServidor = fichaId
+      // S1 — Sin sesión no podemos filtrar incidencias por tiempo ni calcular tiempo real.
+      // Rechazar en modo normal (no prueba) en lugar de aceptar datos del cliente sin validación.
+      // El modo prueba del instructor no crea SesionEvaluacion, por eso se excluye.
+      if (fichaId && !sesion && esPrueba !== true) {
+        return NextResponse.json(
+          { error: "Sesión de evaluación no encontrada. Recarga la página e intenta de nuevo." },
+          { status: 400 },
+        );
+      }
+
+      // M3 — Contar incidencias del intento actual filtradas por inicio de sesión.
+      const incidenciasServidor = fichaId && sesion
         ? await prisma.incidenciaAntiplagio.count({
-            where: {
-              cedula,
-              evaluacionId,
-              fichaId,
-              ...(sesion ? { registradoEn: { gte: sesion.iniciadoEn } } : {}),
-            },
+            where: { cedula, evaluacionId, fichaId, registradoEn: { gte: sesion.iniciadoEn } },
           })
-        : (incidenciasAntiplagio ?? 0); // fallback a valor del cliente en prueba sin fichaId
+        : (incidenciasAntiplagio ?? 0); // fallback solo en modo prueba (sin fichaId)
 
       const umbralAltoConfig = (evaluacion.config as any)?.umbralAntiplagio?.alto ?? 3;
       const anuladaComputada = incidenciasServidor >= umbralAltoConfig;
@@ -350,9 +354,10 @@ export async function POST(request: NextRequest) {
     // Aplicar lógica de anulación también en rama legacy
     const umbralAltoLegacy = (allQuestions as any)?.config?.umbralAntiplagio?.alto ?? 3;
     const anuladaLegacy = (incidenciasAntiplagio ?? 0) >= umbralAltoLegacy;
+    const totalEsperadoLegacy = Object.values(APP_CONFIG.distribucionPreguntas).reduce((a, b) => a + b, 0);
     const resultado = anuladaLegacy
-      ? { puntajeTotal: 0, aprobado: false, preguntasCorrectas: 0, preguntasParciales: 0, totalPreguntas: preguntasEvaluadas.length, puntajePorTema: {} }
-      : calcularPuntaje(preguntasEvaluadas, respuestasUsuario as any, APP_CONFIG.passingScorePercentage);
+      ? { puntajeTotal: 0, aprobado: false, preguntasCorrectas: 0, preguntasParciales: 0, totalPreguntas: totalEsperadoLegacy, puntajePorTema: {} }
+      : calcularPuntaje(preguntasEvaluadas, respuestasUsuario as any, APP_CONFIG.passingScorePercentage, totalEsperadoLegacy);
 
     const nuevoRegistro = {
       cedula,

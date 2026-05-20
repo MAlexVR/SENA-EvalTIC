@@ -61,7 +61,11 @@ export default function EvaluacionPage() {
   const [tabSwitches, setTabSwitches] = useState(0);
   const [showFirstWarning, setShowFirstWarning] = useState(false);
   const [anulando, setAnulando] = useState(false);
-  const anulandoRef = useRef(false);
+  // Dos refs con responsabilidades separadas:
+  // - enProgreso: hay un envío de anulación en vuelo ahora mismo (previene envíos concurrentes)
+  // - exitosa:    la anulación fue guardada con éxito (bloquea cualquier reintento permanentemente)
+  const anulacionEnProgresoRef = useRef(false);
+  const anulacionExitosaRef = useRef(false);
   // Guard against multiple events firing simultaneously (blur + visibilitychange + fullscreenchange)
   const isHiddenRef = useRef(false);
 
@@ -168,14 +172,18 @@ export default function EvaluacionPage() {
   }, [showStartModal]);
 
   const dispararAnulacion = () => {
-    if (anulandoRef.current) return;
-    anulandoRef.current = true;
+    if (anulacionExitosaRef.current) return;   // ya guardada — no reintentar jamás
+    if (anulacionEnProgresoRef.current) return; // hay un envío en vuelo — no duplicar
+    anulacionEnProgresoRef.current = true;
     setAnulando(true);
     finalizarEvaluacion(tabSwitches, true).then(() => {
+      anulacionEnProgresoRef.current = false;
+      if (useEvaluacionStore.getState().estado === "resultados") {
+        anulacionExitosaRef.current = true; // bloqueo permanente solo si llegó a resultados
+      }
       setAnulando(false);
     }).catch(() => {
-      // finalizarEvaluacion never rejects — this is a safety net
-      anulandoRef.current = false;
+      anulacionEnProgresoRef.current = false;
       setAnulando(false);
     });
   };
@@ -205,7 +213,7 @@ export default function EvaluacionPage() {
     if (tiempoTranscurrido === 0) return; // hasn't started yet
     if (estado !== "evaluando") return;
     if (finalizando) return;
-    if (anulandoRef.current) return;
+    if (anulacionEnProgresoRef.current || anulacionExitosaRef.current) return;
     setFinalizando(true);
     finalizarEvaluacion(tabSwitches).finally(() => setFinalizando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -223,7 +231,7 @@ export default function EvaluacionPage() {
   }
 
   const handleFinalizar = async () => {
-    if (anulandoRef.current) return;
+    if (anulacionEnProgresoRef.current || anulacionExitosaRef.current) return;
     setFinalizando(true);
     try {
       await finalizarEvaluacion(tabSwitches);
@@ -322,7 +330,7 @@ export default function EvaluacionPage() {
               ) : estado === "evaluando" ? (
                 <button
                   className="mt-2 bg-red-500/30 hover:bg-red-500/50 text-white text-sm px-6 py-2 rounded-lg transition-colors"
-                  onClick={() => { anulandoRef.current = false; dispararAnulacion(); }}
+                  onClick={() => dispararAnulacion()}
                 >
                   Reintentar
                 </button>
