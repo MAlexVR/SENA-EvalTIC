@@ -11,10 +11,21 @@ const crearEvaluacionSchema = z.object({
   codigoCompetencia: z.string().min(1, "Código de competencia requerido").max(20),
   resultadoAprendizaje: z.string().min(3, "Resultado de aprendizaje muy corto").max(500),
   codigoRA: z.string().min(1, "Código RA requerido").max(20),
-  preguntas: z.array(z.unknown()).min(1, "Debes cargar el banco de preguntas"),
+  preguntas: z.array(
+    z.object({ tipo: z.enum(["seleccion_unica","seleccion_multiple","emparejamiento","verdadero_falso","numerica","ordenamiento","completar","clasificacion","hotspot"]) }).passthrough()
+  ).optional(),
   fechaInicio: z.string().optional().nullable(),
   fechaFin: z.string().optional().nullable(),
-  config: z.record(z.string(), z.unknown()).optional(),
+  config: z.object({
+    timeLimitMinutes: z.number().int().min(1).max(180).optional(),
+    passingScorePercentage: z.number().min(0).max(100).optional(),
+    distribucionPreguntas: z.record(z.string(), z.number().int().min(0)).optional(),
+    aleatorizarOpciones: z.boolean().optional(),
+    umbralAntiplagio: z.object({
+      medio: z.number().int().min(1).optional(),
+      alto: z.number().int().min(1).optional(),
+    }).optional(),
+  }).optional(),
   maxIntentos: z.number().int().min(1).max(10).optional(),
 });
 
@@ -71,14 +82,18 @@ export async function POST(req: NextRequest) {
         codigoCompetencia,
         resultadoAprendizaje,
         codigoRA,
-        preguntas: preguntas as Prisma.InputJsonValue,
+        preguntas: (preguntas ?? []) as Prisma.InputJsonValue,
         activa: false,
         fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
         fechaFin: fechaFin ? new Date(fechaFin) : null,
         config: (config ?? {
           timeLimitMinutes: 15,
           passingScorePercentage: 65,
-          distribucionPreguntas: { seleccion_unica: 5, seleccion_multiple: 3, emparejamiento: 2 },
+          distribucionPreguntas: {
+            seleccion_unica: 5, seleccion_multiple: 3, emparejamiento: 2,
+            verdadero_falso: 0, completar: 0, ordenamiento: 0,
+            hotspot: 0, clasificacion: 0, numerica: 0,
+          },
           aleatorizarOpciones: true,
         }) as Prisma.InputJsonValue,
         maxIntentos: maxIntentos ?? 1,

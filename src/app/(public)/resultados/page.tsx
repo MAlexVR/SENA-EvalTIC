@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { generatePDF, savePdf } from "@/lib/pdf-generator";
 import { fmtScore, cn } from "@/lib/utils";
+import { TIPO_LABELS } from "@/types/preguntas";
 
 export default function ResultadosPage() {
   const router = useRouter();
@@ -265,6 +266,220 @@ export default function ResultadosPage() {
         status,
         userText: userPairs.join("; "),
         correctText: status !== "correcta" ? correctPairs.join("; ") : "",
+        creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
+    if (q.tipo === "verdadero_falso") {
+      const seleccionado: string | undefined = userAnswer.respuestaIds?.[0];
+      const correcto: string | undefined = (q.respuestaCorrecta as string[])?.[0];
+      const toLabel = (v: string | undefined) =>
+        v === "verdadero" ? "Verdadero" : v === "falso" ? "Falso" : "Sin respuesta";
+
+      return {
+        status,
+        userText: toLabel(seleccionado),
+        correctText: status !== "correcta" ? toLabel(correcto) : "",
+        creditoInfo: null,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
+    if (q.tipo === "numerica") {
+      const unidad: string = q.unidad ?? "";
+      const unitSuffix = unidad ? ` ${unidad}` : "";
+      const valor = userAnswer.valorNumerico;
+      const userText =
+        valor !== undefined && valor !== null
+          ? `${valor}${unitSuffix}`
+          : "Sin respuesta";
+      const respuestaCorrecta: number = q.respuestaCorrecta ?? 0;
+      const tolerancia: number = q.tolerancia ?? 0;
+      const correctText =
+        status !== "correcta"
+          ? tolerancia > 0
+            ? `${respuestaCorrecta} ± ${tolerancia}${unitSuffix}`
+            : `${respuestaCorrecta}${unitSuffix}`
+          : "";
+      return {
+        status,
+        userText,
+        correctText,
+        creditoInfo: null,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
+    if (q.tipo === "ordenamiento") {
+      const elementos: { id: string; texto: string }[] = q.elementos ?? [];
+      const idToTexto = Object.fromEntries(elementos.map((e: any) => [e.id, e.texto]));
+      const respuestaCorrecta: string[] = q.respuestaCorrecta ?? [];
+      const studentOrder: string[] = userAnswer.ordenamiento ?? [];
+
+      const aciertos = respuestaCorrecta.filter(
+        (id, i) => studentOrder[i] === id,
+      ).length;
+
+      const userText =
+        studentOrder.length > 0
+          ? studentOrder.map((id, i) => {
+              const isOk = respuestaCorrecta[i] === id;
+              return `${i + 1}. ${idToTexto[id] ?? id}${isOk ? " ✓" : " ✗"}`;
+            }).join(" | ")
+          : "Sin respuesta";
+
+      const correctText =
+        status !== "correcta"
+          ? respuestaCorrecta.map((id, i) => `${i + 1}. ${idToTexto[id] ?? id}`).join(" | ")
+          : "";
+
+      const creditoInfo =
+        status === "parcial"
+          ? `${aciertos} de ${respuestaCorrecta.length} posiciones correctas`
+          : null;
+
+      return {
+        status,
+        userText,
+        correctText,
+        creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
+    if (q.tipo === "clasificacion") {
+      const categorias: { id: string; etiqueta: string }[] = q.categorias ?? [];
+      const elementos: { id: string; texto: string }[] = q.elementos ?? [];
+      const correctMap: Record<string, string[]> = q.respuestaCorrecta ?? {};
+      const studentMap: Record<string, string[]> = userAnswer.clasificacion ?? {};
+
+      // Build element → correct category map
+      const elementoToCorrectCat: Record<string, string> = {};
+      for (const [catId, arr] of Object.entries(correctMap)) {
+        for (const elemId of arr as string[]) {
+          elementoToCorrectCat[elemId] = catId;
+        }
+      }
+      // Build element → student category map
+      const elementoToStudentCat: Record<string, string> = {};
+      for (const [catId, arr] of Object.entries(studentMap)) {
+        for (const elemId of arr as string[]) {
+          elementoToStudentCat[elemId] = catId;
+        }
+      }
+
+      const catLabel = (catId: string) =>
+        categorias.find((c) => c.id === catId)?.etiqueta ?? catId;
+
+      const aciertos = elementos.filter(
+        (e) => elementoToStudentCat[e.id] === elementoToCorrectCat[e.id],
+      ).length;
+
+      const userText = elementos
+        .map((e) => {
+          const studentCat = elementoToStudentCat[e.id];
+          const correctCat = elementoToCorrectCat[e.id];
+          const isOk = studentCat === correctCat;
+          const assigned = studentCat ? catLabel(studentCat) : "Sin clasificar";
+          return `${e.texto} → ${assigned}${isOk ? " ✓" : " ✗"}`;
+        })
+        .join(" | ");
+
+      const correctText =
+        status !== "correcta"
+          ? elementos
+              .map((e) => `${e.texto} → ${catLabel(elementoToCorrectCat[e.id] ?? "")}`)
+              .join(" | ")
+          : "";
+
+      const creditoInfo =
+        status === "parcial"
+          ? `${aciertos} de ${elementos.length} elementos correctos`
+          : null;
+
+      return {
+        status,
+        userText: userText || "Sin respuesta",
+        correctText,
+        creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
+    if (q.tipo === "hotspot") {
+      const zonas: { id: string; etiqueta: string; esCorrecta?: boolean }[] = (q as any).zonas ?? [];
+      const correctas = zonas.filter((z) => z.esCorrecta);
+      const selectedIds: string[] = userAnswer.respuestaIds ?? [];
+
+      const aciertos = correctas.filter((z) => selectedIds.includes(z.id)).length;
+
+      const userText =
+        selectedIds.length > 0
+          ? selectedIds
+              .map((id) => {
+                const zona = zonas.find((z) => z.id === id);
+                const isOk = correctas.some((z) => z.id === id);
+                return `${zona?.etiqueta ?? id}${isOk ? " ✓" : " ✗"}`;
+              })
+              .join(", ")
+          : "Ninguna zona seleccionada";
+
+      const correctText =
+        status !== "correcta"
+          ? correctas.map((z) => z.etiqueta).join(", ") || "—"
+          : "";
+
+      const creditoInfo =
+        status === "parcial"
+          ? `${aciertos} de ${correctas.length} zonas correctas`
+          : null;
+
+      return {
+        status,
+        userText,
+        correctText,
+        creditoInfo,
+        retroalimentacion: q.retroalimentacion || "",
+      };
+    }
+
+    if (q.tipo === "completar") {
+      const segmentos: Array<{ tipo: "texto" | "espacio"; contenido?: string; id?: string; respuestaCorrecta?: string }> = q.segmentos ?? [];
+      const espacioSegs = segmentos.filter((s) => s.tipo === "espacio") as Array<{ tipo: "espacio"; id: string; respuestaCorrecta?: string }>;
+      const espaciosRespuestas: Record<string, string> = userAnswer.espacios ?? {};
+
+      const aciertos = espacioSegs.filter((s) => {
+        const student = (espaciosRespuestas[s.id] ?? "").trim().toLowerCase();
+        const correct = (s.respuestaCorrecta ?? "").trim().toLowerCase();
+        return student === correct;
+      }).length;
+
+      // Build filled sentence with color markers for display
+      const userText = segmentos.map((s) => {
+        if (s.tipo === "texto") return s.contenido ?? "";
+        const answer = espaciosRespuestas[s.id ?? ""] ?? "";
+        const isOk = answer.trim().toLowerCase() === (s.respuestaCorrecta ?? "").trim().toLowerCase();
+        return answer ? `[${answer}${isOk ? "✓" : "✗"}]` : "[—]";
+      }).join("");
+
+      const correctText =
+        status !== "correcta"
+          ? segmentos.map((s) => {
+              if (s.tipo === "texto") return s.contenido ?? "";
+              return `[${s.respuestaCorrecta ?? ""}]`;
+            }).join("")
+          : "";
+
+      const creditoInfo =
+        status === "parcial"
+          ? `${aciertos} de ${espacioSegs.length} espacios correctos`
+          : null;
+
+      return {
+        status,
+        userText,
+        correctText,
         creditoInfo,
         retroalimentacion: q.retroalimentacion || "",
       };
@@ -559,12 +774,7 @@ export default function ResultadosPage() {
                         Pregunta {index + 1}{" "}
                         <span className="font-normal text-sena-gray-dark/70">
                           ({q.tema || "General"} •{" "}
-                          {q.tipo === "seleccion_unica"
-                            ? "Selección única"
-                            : q.tipo === "seleccion_multiple"
-                              ? "Selección múltiple"
-                              : "Emparejamiento"}
-                          )
+                          {TIPO_LABELS[q.tipo as keyof typeof TIPO_LABELS] ?? q.tipo})
                         </span>
                       </h4>
                       {qResult.status === "correcta" ? (

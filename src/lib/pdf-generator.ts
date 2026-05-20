@@ -5,6 +5,7 @@ import { APP_CONFIG } from "./config";
 import { EvaluacionResultado, calcularCreditoPregunta } from "./score";
 import { DatosAprendiz, RespuestaAprendiz } from "@/stores/evaluacion-store";
 import { fmtScore } from "./utils";
+import { TIPO_LABELS, TipoPregunta } from "@/types/preguntas";
 
 // PAGE LAYOUT - Letter 8.5x11 in
 const PAGE_W = 215.9;
@@ -712,12 +713,10 @@ export async function generatePDF(
     ctx.y = checkPage(ctx, 14);
     doc.setFontSize(9);
     doc.setFont(font, "bold");
-    const tipoLabel =
-      q.tipo === "seleccion_unica"
-        ? "Seleccion Unica"
-        : q.tipo === "seleccion_multiple"
-          ? "Seleccion Multiple"
-          : "Emparejamiento";
+    const tipoLabel = (TIPO_LABELS[q.tipo as TipoPregunta] ?? q.tipo)
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/\//g, "-");
 
     fc(doc, GRAY_LIGHT);
     doc.rect(MARGIN, ctx.y - 4, CONTENT_W, 7, "F");
@@ -742,7 +741,450 @@ export async function generatePDF(
     ctx.y += 2;
 
     // Answer section
-    if (q.tipo === "emparejamiento" && ua) {
+    if (q.tipo === "verdadero_falso" && ua) {
+      const seleccionado: string | undefined = ua.respuestaIds?.[0];
+      const correcto: string | undefined = (q.respuestaCorrecta as string[] | undefined)?.[0];
+      const toLabel = (v: string | undefined) =>
+        v === "verdadero" ? "Verdadero" : v === "falso" ? "Falso" : "(sin respuesta)";
+
+      ctx.y = checkPage(ctx, 10);
+      doc.setFontSize(8.5);
+      doc.setFont(font, "bold");
+      tc(doc, SENA_BLUE);
+      doc.text("Su respuesta:", MARGIN + 3, ctx.y);
+      doc.setFont(font, "normal");
+      if (isCorrect === "Correcta") tc(doc, SENA_GREEN);
+      else if (isCorrect === "Incorrecta") tc(doc, RED);
+      else tc(doc, GRAY);
+      ctx.y = wrapText(ctx, toLabel(seleccionado), MARGIN + 38, CONTENT_W - 41, 5);
+
+      if (isCorrect !== "Correcta" && correcto) {
+        correctTextStr = toLabel(correcto);
+      }
+    } else if (q.tipo === "numerica" && ua) {
+      const unidad: string = (q as any).unidad ?? "";
+      const unitSuffix = unidad ? ` ${unidad}` : "";
+      const valor = ua.valorNumerico;
+      const displayValue =
+        valor !== undefined && valor !== null
+          ? `${valor}${unitSuffix}`
+          : "(sin respuesta)";
+
+      ctx.y = checkPage(ctx, 10);
+      doc.setFontSize(8.5);
+      doc.setFont(font, "bold");
+      tc(doc, SENA_BLUE);
+      doc.text("Su respuesta:", MARGIN + 3, ctx.y);
+      doc.setFont(font, "normal");
+      if (isCorrect === "Correcta") tc(doc, SENA_GREEN);
+      else if (isCorrect === "Incorrecta") tc(doc, RED);
+      else tc(doc, GRAY);
+      ctx.y = wrapText(ctx, displayValue, MARGIN + 38, CONTENT_W - 41, 5);
+
+      if (isCorrect !== "Correcta") {
+        const respCorrectaNum: number = (q as any).respuestaCorrecta ?? 0;
+        const tolerancia: number = (q as any).tolerancia ?? 0;
+        correctTextStr = tolerancia > 0
+          ? `${respCorrectaNum} +/- ${tolerancia}${unitSuffix}`
+          : `${respCorrectaNum}${unitSuffix}`;
+      }
+    } else if (q.tipo === "ordenamiento" && ua) {
+      const elementos: Array<{ id: string; texto: string }> = (q as any).elementos ?? [];
+      const idToTexto = Object.fromEntries(elementos.map((e) => [e.id, e.texto]));
+      const respuestaCorrecta: string[] = (q as any).respuestaCorrecta ?? [];
+      const studentOrder: string[] = ua.ordenamiento ?? [];
+
+      const tableBody = respuestaCorrecta.map((correctId, i) => {
+        const studentId = studentOrder[i] ?? "";
+        const isOk = studentId === correctId;
+        return [
+          String(i + 1),
+          n((idToTexto[studentId] ?? studentId) || "-"),
+          isOk ? "1" : "0",
+          n(idToTexto[correctId] ?? correctId),
+        ];
+      });
+
+      if (isCorrect === "Parcial") {
+        const aciertos = respuestaCorrecta.filter((id, i) => studentOrder[i] === id).length;
+        creditoInfo = `${aciertos} de ${respuestaCorrecta.length} posiciones correctas`;
+      }
+
+      const ordEstimate = 10 + respuestaCorrecta.length * 9 + 6;
+      ctx.y = checkPage(ctx, ordEstimate);
+      autoTable(doc, {
+        startY: ctx.y,
+        head: [["Pos.", "Su orden", "Val.", "Orden correcto"]],
+        body: tableBody,
+        theme: "grid",
+        headStyles: {
+          fillColor: SENA_BLUE,
+          textColor: 255,
+          fontSize: 8,
+          halign: "center",
+          ...tbl({}),
+        },
+        bodyStyles: { fontSize: 8, ...tbl({}) },
+        columnStyles: {
+          0: { cellWidth: 12, halign: "center" },
+          1: { cellWidth: (CONTENT_W - 4 - 12 - 10) * 0.5 },
+          2: { cellWidth: 10, halign: "center" },
+          3: { cellWidth: (CONTENT_W - 4 - 12 - 10) * 0.5 },
+        },
+        margin: { top: HEADER_BOTTOM, left: MARGIN, right: MARGIN, bottom: 22 },
+        pageBreak: "auto",
+        showHead: "everyPage",
+        didParseCell: (data) => {
+          if (data.section !== "body") return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          if (data.column.index === 2) {
+            data.cell.text = [""];
+            data.cell.styles.fillColor = isOK ? SENA_GREEN : RED;
+          }
+          if (data.column.index === 1) {
+            data.cell.styles.textColor = isOK ? SENA_GREEN : RED;
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 2) return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          const cx = data.cell.x + data.cell.width / 2;
+          const cy = data.cell.y + data.cell.height / 2;
+          doc.setFillColor(255, 255, 255);
+          doc.circle(cx, cy, 2.2, "F");
+          doc.setLineWidth(0.4);
+          if (isOK) {
+            doc.setDrawColor(SENA_GREEN[0], SENA_GREEN[1], SENA_GREEN[2]);
+            doc.line(cx - 1, cy, cx - 0.2, cy + 1.2);
+            doc.line(cx - 0.2, cy + 1.2, cx + 1.2, cy - 1);
+          } else {
+            doc.setDrawColor(RED[0], RED[1], RED[2]);
+            doc.line(cx - 1, cy - 1, cx + 1, cy + 1);
+            doc.line(cx + 1, cy - 1, cx - 1, cy + 1);
+          }
+          tc(doc, BLACK);
+        },
+        didDrawPage: (data) => {
+          addFooter(doc, font);
+          if (data.pageNumber > 1) {
+            ctx.y = addHeader(doc, dateStr, font);
+            addWatermark(doc, watermarkText);
+          }
+        },
+      });
+      ctx.y = (doc as unknown as DocWithTable).lastAutoTable.finalY + 3;
+    } else if (q.tipo === "clasificacion" && ua) {
+      const categorias: Array<{ id: string; etiqueta: string }> = (q as any).categorias ?? [];
+      const elementos: Array<{ id: string; texto: string }> = (q as any).elementos ?? [];
+      const correctMap: Record<string, string[]> = (q as any).respuestaCorrecta ?? {};
+      const studentMap: Record<string, string[]> = ua.clasificacion ?? {};
+
+      // Build element → correct category map
+      const elementoToCorrectCat: Record<string, string> = {};
+      for (const [catId, arr] of Object.entries(correctMap)) {
+        for (const elemId of arr as string[]) {
+          elementoToCorrectCat[elemId] = catId;
+        }
+      }
+      // Build element → student category map
+      const elementoToStudentCat: Record<string, string> = {};
+      for (const [catId, arr] of Object.entries(studentMap)) {
+        for (const elemId of arr as string[]) {
+          elementoToStudentCat[elemId] = catId;
+        }
+      }
+
+      const catLabel = (catId: string) =>
+        categorias.find((c) => c.id === catId)?.etiqueta ?? catId;
+
+      const tableBody = elementos.map((elem) => {
+        const studentCatId = elementoToStudentCat[elem.id] ?? "";
+        const correctCatId = elementoToCorrectCat[elem.id] ?? "";
+        const isOk = studentCatId === correctCatId;
+        return [
+          n(elem.texto),
+          n(studentCatId ? catLabel(studentCatId) : "(sin clasificar)"),
+          isOk ? "1" : "0",
+          n(catLabel(correctCatId)),
+        ];
+      });
+
+      if (isCorrect === "Parcial") {
+        const aciertos = elementos.filter((e) => elementoToStudentCat[e.id] === elementoToCorrectCat[e.id]).length;
+        creditoInfo = `${aciertos} de ${elementos.length} elementos correctos`;
+      }
+
+      const clasEstimate = 10 + elementos.length * 9 + 6;
+      ctx.y = checkPage(ctx, clasEstimate);
+      autoTable(doc, {
+        startY: ctx.y,
+        head: [["Elemento", "Su categoría", "Val.", "Categoría correcta"]],
+        body: tableBody,
+        theme: "grid",
+        headStyles: {
+          fillColor: SENA_BLUE,
+          textColor: 255,
+          fontSize: 8,
+          halign: "center",
+          ...tbl({}),
+        },
+        bodyStyles: { fontSize: 8, ...tbl({}) },
+        columnStyles: {
+          0: { cellWidth: (CONTENT_W - 4 - 10) * 0.35 },
+          1: { cellWidth: (CONTENT_W - 4 - 10) * 0.3 },
+          2: { cellWidth: 10, halign: "center" },
+          3: { cellWidth: (CONTENT_W - 4 - 10) * 0.35 },
+        },
+        margin: { top: HEADER_BOTTOM, left: MARGIN, right: MARGIN, bottom: 22 },
+        pageBreak: "auto",
+        showHead: "everyPage",
+        didParseCell: (data) => {
+          if (data.section !== "body") return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          if (data.column.index === 2) {
+            data.cell.text = [""];
+            data.cell.styles.fillColor = isOK ? SENA_GREEN : RED;
+          }
+          if (data.column.index === 1) {
+            data.cell.styles.textColor = isOK ? SENA_GREEN : RED;
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 2) return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          const cx = data.cell.x + data.cell.width / 2;
+          const cy = data.cell.y + data.cell.height / 2;
+          doc.setFillColor(255, 255, 255);
+          doc.circle(cx, cy, 2.2, "F");
+          doc.setLineWidth(0.4);
+          if (isOK) {
+            doc.setDrawColor(SENA_GREEN[0], SENA_GREEN[1], SENA_GREEN[2]);
+            doc.line(cx - 1, cy, cx - 0.2, cy + 1.2);
+            doc.line(cx - 0.2, cy + 1.2, cx + 1.2, cy - 1);
+          } else {
+            doc.setDrawColor(RED[0], RED[1], RED[2]);
+            doc.line(cx - 1, cy - 1, cx + 1, cy + 1);
+            doc.line(cx + 1, cy - 1, cx - 1, cy + 1);
+          }
+          tc(doc, BLACK);
+        },
+        didDrawPage: (data) => {
+          addFooter(doc, font);
+          if (data.pageNumber > 1) {
+            ctx.y = addHeader(doc, dateStr, font);
+            addWatermark(doc, watermarkText);
+          }
+        },
+      });
+      ctx.y = (doc as unknown as DocWithTable).lastAutoTable.finalY + 3;
+    } else if (q.tipo === "hotspot" && ua) {
+      const zonas: Array<{ id: string; etiqueta: string; esCorrecta?: boolean }> = (q as any).zonas ?? [];
+      const correctas = zonas.filter((z) => z.esCorrecta);
+      const selectedIds: string[] = ua.respuestaIds ?? [];
+
+      const tableBody = correctas.map((zona) => {
+        const isOk = selectedIds.includes(zona.id);
+        return [n(zona.etiqueta), isOk ? "1" : "0"];
+      });
+
+      // Also include incorrectly clicked zones (selected but not correct)
+      const incorrectClicks = selectedIds.filter((id) => !correctas.some((z) => z.id === id));
+      for (const id of incorrectClicks) {
+        const zona = zonas.find((z) => z.id === id);
+        tableBody.push([n(zona?.etiqueta ?? id) + " (incorrecta)", "0"]);
+      }
+
+      if (isCorrect === "Parcial") {
+        const aciertos = correctas.filter((z) => selectedIds.includes(z.id)).length;
+        creditoInfo = `${aciertos} de ${correctas.length} zonas correctas`;
+      }
+
+      if (tableBody.length > 0) {
+        const hotEstimate = 10 + tableBody.length * 9 + 6;
+        ctx.y = checkPage(ctx, hotEstimate);
+
+        // Show image URL as text reference
+        const imgUrl: string = (q as any).imagen ?? "";
+        if (imgUrl) {
+          ctx.y = checkPage(ctx, 10);
+          doc.setFontSize(8);
+          doc.setFont(font, "normal");
+          tc(doc, GRAY);
+          doc.text("Imagen de referencia:", MARGIN + 3, ctx.y);
+          ctx.y += 4;
+          doc.setFont(font, "italic");
+          ctx.y = wrapText(ctx, n(imgUrl), MARGIN + 5, CONTENT_W - 8, 4);
+          ctx.y += 2;
+        }
+
+        autoTable(doc, {
+          startY: ctx.y,
+          head: [["Zona esperada", "Val."]],
+          body: tableBody,
+          theme: "grid",
+          headStyles: {
+            fillColor: SENA_BLUE,
+            textColor: 255,
+            fontSize: 8,
+            halign: "center",
+            ...tbl({}),
+          },
+          bodyStyles: { fontSize: 8, ...tbl({}) },
+          columnStyles: {
+            0: { cellWidth: CONTENT_W - 14 },
+            1: { cellWidth: 10, halign: "center" },
+          },
+          margin: { top: HEADER_BOTTOM, left: MARGIN, right: MARGIN, bottom: 22 },
+          pageBreak: "auto",
+          showHead: "everyPage",
+          didParseCell: (data) => {
+            if (data.section !== "body") return;
+            const raw = data.row.raw as string[];
+            const isOK = raw[1] === "1";
+            if (data.column.index === 1) {
+              data.cell.text = [""];
+              data.cell.styles.fillColor = isOK ? SENA_GREEN : RED;
+            }
+            if (data.column.index === 0) {
+              data.cell.styles.textColor = isOK ? SENA_GREEN : RED;
+            }
+          },
+          didDrawCell: (data) => {
+            if (data.section !== "body" || data.column.index !== 1) return;
+            const raw = data.row.raw as string[];
+            const isOK = raw[1] === "1";
+            const cx = data.cell.x + data.cell.width / 2;
+            const cy = data.cell.y + data.cell.height / 2;
+            doc.setFillColor(255, 255, 255);
+            doc.circle(cx, cy, 2.2, "F");
+            doc.setLineWidth(0.4);
+            if (isOK) {
+              doc.setDrawColor(SENA_GREEN[0], SENA_GREEN[1], SENA_GREEN[2]);
+              doc.line(cx - 1, cy, cx - 0.2, cy + 1.2);
+              doc.line(cx - 0.2, cy + 1.2, cx + 1.2, cy - 1);
+            } else {
+              doc.setDrawColor(RED[0], RED[1], RED[2]);
+              doc.line(cx - 1, cy - 1, cx + 1, cy + 1);
+              doc.line(cx + 1, cy - 1, cx - 1, cy + 1);
+            }
+            tc(doc, BLACK);
+          },
+          didDrawPage: (data) => {
+            addFooter(doc, font);
+            if (data.pageNumber > 1) {
+              ctx.y = addHeader(doc, dateStr, font);
+              addWatermark(doc, watermarkText);
+            }
+          },
+        });
+        ctx.y = (doc as unknown as DocWithTable).lastAutoTable.finalY + 3;
+      } else {
+        // No zones defined — show text summary
+        ctx.y = checkPage(ctx, 10);
+        doc.setFontSize(8.5);
+        doc.setFont(font, "bold");
+        tc(doc, SENA_BLUE);
+        doc.text("Su respuesta:", MARGIN + 3, ctx.y);
+        doc.setFont(font, "normal");
+        if (isCorrect === "Correcta") tc(doc, SENA_GREEN);
+        else tc(doc, RED);
+        const clickedText = selectedIds.length > 0 ? selectedIds.join(", ") : "(ninguna zona)";
+        ctx.y = wrapText(ctx, clickedText, MARGIN + 38, CONTENT_W - 41, 5);
+      }
+    } else if (q.tipo === "completar" && ua) {
+      const segmentos: Array<{ tipo: "texto" | "espacio"; contenido?: string; id?: string; respuestaCorrecta?: string }> =
+        (q as any).segmentos ?? [];
+      const espacioSegs = segmentos.filter((s) => s.tipo === "espacio") as Array<{
+        tipo: "espacio"; id: string; respuestaCorrecta?: string;
+      }>;
+      const espaciosRespuestas: Record<string, string> = ua.espacios ?? {};
+
+      const tableBody = espacioSegs.map((espacio) => {
+        const studentAnswer = espaciosRespuestas[espacio.id] ?? "(sin respuesta)";
+        const correctAnswer = espacio.respuestaCorrecta ?? "";
+        const isOk = studentAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+        return [n(`[[${espacio.id}]]`), n(studentAnswer), isOk ? "1" : "0", n(correctAnswer)];
+      });
+
+      if (isCorrect === "Parcial") {
+        const aciertos = espacioSegs.filter((s) => {
+          const student = (espaciosRespuestas[s.id] ?? "").trim().toLowerCase();
+          const correct = (s.respuestaCorrecta ?? "").trim().toLowerCase();
+          return student === correct;
+        }).length;
+        creditoInfo = `${aciertos} de ${espacioSegs.length} espacios correctos`;
+      }
+
+      const compEstimate = 10 + espacioSegs.length * 9 + 6;
+      ctx.y = checkPage(ctx, compEstimate);
+      autoTable(doc, {
+        startY: ctx.y,
+        head: [["Espacio", "Su respuesta", "Val.", "Respuesta correcta"]],
+        body: tableBody,
+        theme: "grid",
+        headStyles: {
+          fillColor: SENA_BLUE,
+          textColor: 255,
+          fontSize: 8,
+          halign: "center",
+          ...tbl({}),
+        },
+        bodyStyles: { fontSize: 8, ...tbl({}) },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: (CONTENT_W - 4 - 22 - 10) * 0.5 },
+          2: { cellWidth: 10, halign: "center" },
+          3: { cellWidth: (CONTENT_W - 4 - 22 - 10) * 0.5 },
+        },
+        margin: { top: HEADER_BOTTOM, left: MARGIN, right: MARGIN, bottom: 22 },
+        pageBreak: "auto",
+        showHead: "everyPage",
+        didParseCell: (data) => {
+          if (data.section !== "body") return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          if (data.column.index === 2) {
+            data.cell.text = [""];
+            data.cell.styles.fillColor = isOK ? SENA_GREEN : RED;
+          }
+          if (data.column.index === 1) {
+            data.cell.styles.textColor = isOK ? SENA_GREEN : RED;
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 2) return;
+          const raw = data.row.raw as string[];
+          const isOK = raw[2] === "1";
+          const cx = data.cell.x + data.cell.width / 2;
+          const cy = data.cell.y + data.cell.height / 2;
+          doc.setFillColor(255, 255, 255);
+          doc.circle(cx, cy, 2.2, "F");
+          doc.setLineWidth(0.4);
+          if (isOK) {
+            doc.setDrawColor(SENA_GREEN[0], SENA_GREEN[1], SENA_GREEN[2]);
+            doc.line(cx - 1, cy, cx - 0.2, cy + 1.2);
+            doc.line(cx - 0.2, cy + 1.2, cx + 1.2, cy - 1);
+          } else {
+            doc.setDrawColor(RED[0], RED[1], RED[2]);
+            doc.line(cx - 1, cy - 1, cx + 1, cy + 1);
+            doc.line(cx + 1, cy - 1, cx - 1, cy + 1);
+          }
+          tc(doc, BLACK);
+        },
+        didDrawPage: (data) => {
+          addFooter(doc, font);
+          if (data.pageNumber > 1) {
+            ctx.y = addHeader(doc, dateStr, font);
+            addWatermark(doc, watermarkText);
+          }
+        },
+      });
+      ctx.y = (doc as unknown as DocWithTable).lastAutoTable.finalY + 3;
+    } else if (q.tipo === "emparejamiento" && ua) {
       const pares = q.pares || [];
       const emps = ua.emparejamientos || {};
       const COL0 = (CONTENT_W - 4) * 0.37;

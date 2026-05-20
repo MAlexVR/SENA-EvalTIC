@@ -50,6 +50,80 @@ export function calcularCreditoPregunta(
     return aciertos / pares.length;
   }
 
+  if (pregunta.tipo === "verdadero_falso") {
+    const correctas: string[] = pregunta.respuestaCorrecta ?? [];
+    const seleccionadas = respuestaApp.respuestaIds ?? [];
+    return seleccionadas[0] === correctas[0] ? 1 : 0;
+  }
+
+  if (pregunta.tipo === "numerica") {
+    const valorNumerico = respuestaApp.valorNumerico;
+    // No answer or non-numeric value → 0
+    if (valorNumerico === undefined || valorNumerico === null) return 0;
+    const respuestaCorrecta: number = pregunta.respuestaCorrecta ?? 0;
+    const tolerancia: number = pregunta.tolerancia ?? 0;
+    // tolerancia=0 → exact match (diff must be exactly 0)
+    return Math.abs(valorNumerico - respuestaCorrecta) <= tolerancia ? 1 : 0;
+  }
+
+  if (pregunta.tipo === "ordenamiento") {
+    const respuestaCorrecta: string[] = pregunta.respuestaCorrecta ?? [];
+    const studentOrder: string[] = respuestaApp.ordenamiento ?? [];
+    if (respuestaCorrecta.length === 0) return 0;
+    let aciertos = 0;
+    for (let i = 0; i < respuestaCorrecta.length; i++) {
+      if (studentOrder[i] === respuestaCorrecta[i]) aciertos++;
+    }
+    return aciertos / respuestaCorrecta.length;
+  }
+
+  if (pregunta.tipo === "completar") {
+    const segmentos: any[] = pregunta.segmentos ?? [];
+    const espacios = segmentos.filter((s: any) => s.tipo === "espacio");
+    if (espacios.length === 0) return 0;
+    const respuestaEspacios: Record<string, string> = respuestaApp.espacios ?? {};
+    let correctos = 0;
+    for (const espacio of espacios) {
+      const studentAnswer = (respuestaEspacios[espacio.id] ?? "").trim().toLowerCase();
+      const correctAnswer = (espacio.respuestaCorrecta ?? "").trim().toLowerCase();
+      if (studentAnswer === correctAnswer) correctos++;
+    }
+    return correctos / espacios.length;
+  }
+
+  if (pregunta.tipo === "hotspot") {
+    const zona = pregunta.zonaCorrecta;
+    if (!zona) return 0;
+    const click = respuestaApp.hotspotClick;
+    if (!click) return 0;
+    const dx = click.x - zona.cx;
+    const dy = click.y - zona.cy;
+    return Math.sqrt(dx * dx + dy * dy) <= zona.radio ? 1 : 0;
+  }
+
+  if (pregunta.tipo === "clasificacion") {
+    const correctMap: Record<string, string[]> = pregunta.respuestaCorrecta ?? {};
+    const studentMap: Record<string, string[]> = respuestaApp.clasificacion ?? {};
+    // Build element → correct category mapping
+    const elementoACategoria: Record<string, string> = {};
+    for (const [catId, elementos] of Object.entries(correctMap)) {
+      for (const elemId of (elementos as string[])) {
+        elementoACategoria[elemId] = catId;
+      }
+    }
+    const totalElementos = Object.keys(elementoACategoria).length;
+    if (totalElementos === 0) return 0;
+    let correctos = 0;
+    // Check student's classification
+    for (const [catId, elementos] of Object.entries(studentMap)) {
+      for (const elemId of (elementos as string[])) {
+        if (elementoACategoria[elemId] === catId) correctos++;
+      }
+    }
+    return correctos / totalElementos;
+  }
+
+  console.warn(`[score] Tipo de pregunta desconocido: ${pregunta.tipo}`);
   return 0;
 }
 

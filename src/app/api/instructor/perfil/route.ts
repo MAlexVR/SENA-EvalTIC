@@ -7,6 +7,9 @@ import { encryptValue, safeDecrypt } from "@/lib/crypto";
 const perfilPutSchema = z.object({
   emailNotificaciones: z.boolean().optional(),
   resendApiKey: z.string().max(200).optional(),
+  cloudinaryCloudName: z.string().max(200).optional(),
+  cloudinaryApiKey: z.string().max(200).optional(),
+  cloudinaryApiSecret: z.string().max(200).optional(),
 });
 
 export async function GET() {
@@ -21,6 +24,9 @@ export async function GET() {
         email: true,
         resendApiKey: true,
         emailNotificaciones: true,
+        cloudinaryCloudName: true,
+        cloudinaryApiKey: true,
+        cloudinaryApiSecret: true,
       },
     });
 
@@ -41,6 +47,11 @@ export async function GET() {
       emailNotificaciones: instructor.emailNotificaciones,
       resendApiKey: maskedKey,
       tieneApiKey: !!instructor.resendApiKey,
+      cloudinaryCloudName: instructor.cloudinaryCloudName ?? null,
+      cloudinaryApiKey: instructor.cloudinaryApiKey
+        ? `${"*".repeat(Math.max(0, instructor.cloudinaryApiKey.length - 4))}${instructor.cloudinaryApiKey.slice(-4)}`
+        : null,
+      tieneCloudinary: !!instructor.cloudinaryApiSecret,
     });
   } catch {
     return NextResponse.json({ error: "Error al obtener el perfil" }, { status: 500 });
@@ -61,7 +72,7 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const { emailNotificaciones, resendApiKey } = parsed.data;
+    const { emailNotificaciones, resendApiKey, cloudinaryCloudName, cloudinaryApiKey, cloudinaryApiSecret } = parsed.data;
     const data: Record<string, unknown> = {};
 
     if (typeof emailNotificaciones === "boolean") {
@@ -81,12 +92,36 @@ export async function PUT(req: NextRequest) {
       // Si contiene asteriscos es la versión enmascarada — no sobreescribir
     }
 
+    if (typeof cloudinaryCloudName === "string") {
+      data.cloudinaryCloudName = cloudinaryCloudName.trim() || null;
+    }
+
+    if (typeof cloudinaryApiKey === "string") {
+      data.cloudinaryApiKey = cloudinaryApiKey.trim() || null;
+    }
+
+    if (typeof cloudinaryApiSecret === "string") {
+      if (cloudinaryApiSecret.trim() === "") {
+        data.cloudinaryApiSecret = null;
+      } else if (!cloudinaryApiSecret.includes("*")) {
+        // No es versión enmascarada — cifrar el secret
+        const shouldEncrypt = !!process.env.ENCRYPTION_KEY;
+        data.cloudinaryApiSecret = shouldEncrypt
+          ? encryptValue(cloudinaryApiSecret.trim())
+          : cloudinaryApiSecret.trim();
+      }
+      // Si contiene asteriscos es la versión enmascarada — no sobreescribir
+    }
+
     const updated = await prisma.instructor.update({
       where: { id },
       data,
       select: {
         emailNotificaciones: true,
         resendApiKey: true,
+        cloudinaryCloudName: true,
+        cloudinaryApiKey: true,
+        cloudinaryApiSecret: true,
       },
     });
 
@@ -100,6 +135,11 @@ export async function PUT(req: NextRequest) {
       emailNotificaciones: updated.emailNotificaciones,
       resendApiKey: maskedKey,
       tieneApiKey: !!updated.resendApiKey,
+      cloudinaryCloudName: updated.cloudinaryCloudName ?? null,
+      cloudinaryApiKey: updated.cloudinaryApiKey
+        ? `${"*".repeat(Math.max(0, updated.cloudinaryApiKey.length - 4))}${updated.cloudinaryApiKey.slice(-4)}`
+        : null,
+      tieneCloudinary: !!updated.cloudinaryApiSecret,
     });
   } catch {
     return NextResponse.json({ error: "Error al actualizar el perfil" }, { status: 500 });

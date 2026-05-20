@@ -74,8 +74,6 @@ interface AprendizEncontrado {
 
 export function FormularioRegistro({ fichas = [] }: FormularioRegistroProps) {
   const router = useRouter();
-  const hasDbFichas = fichas.length > 0;
-
   // ── State ──────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("lookup");
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -91,8 +89,8 @@ export function FormularioRegistro({ fichas = [] }: FormularioRegistroProps) {
   const iniciarEvaluacion = useEvaluacionStore((s) => s.iniciarEvaluacion);
   const setDatosAprendiz = useEvaluacionStore((s) => s.setDatosAprendiz);
 
-  // ── Legacy (no DB fichas) ─ single-step form ───────────────────────────────
-  if (!hasDbFichas && !APP_CONFIG.useDatabaseBackend) {
+  // ── Legacy ─ solo cuando el backend de BD está deshabilitado explícitamente ──
+  if (!APP_CONFIG.useDatabaseBackend) {
     return <LegacyForm fichas={fichas} />;
   }
 
@@ -243,18 +241,27 @@ export function FormularioRegistro({ fichas = [] }: FormularioRegistroProps) {
         <CardContent className="space-y-5">
           <div className="space-y-1.5">
             <Label className="font-semibold text-sena-blue text-sm">Número de Ficha</Label>
-            <Select value={fichaSeleccionada} onValueChange={setFichaSeleccionada}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona tu ficha..." />
-              </SelectTrigger>
-              <SelectContent>
-                {fichas.map((f) => (
-                  <SelectItem key={f.numero} value={f.numero}>
-                    {f.numero} — {f.programa.slice(0, 45)}{f.programa.length > 45 ? "…" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {fichas.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  No hay evaluaciones activas en este momento. Contacta a tu instructor.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Select value={fichaSeleccionada} onValueChange={setFichaSeleccionada}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona tu ficha..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {fichas.map((f) => (
+                    <SelectItem key={f.numero} value={f.numero}>
+                      {f.numero} — {f.programa.slice(0, 45)}{f.programa.length > 45 ? "…" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-1.5">

@@ -16,8 +16,11 @@ model Instructor {
   nombre              String
   password            String
   isAdmin             Boolean      @default(false)
-  resendApiKey        String?
-  emailNotificaciones Boolean      @default(false)
+  resendApiKey         String?
+  emailNotificaciones  Boolean      @default(false)
+  cloudinaryCloudName  String?
+  cloudinaryApiKey     String?
+  cloudinaryApiSecret  String?
   evaluaciones        Evaluacion[]
   creadoEn            DateTime     @default(now())
 }
@@ -108,4 +111,26 @@ model Resultado {
   presentadoEn       DateTime   @default(now())
 
   @@unique([cedula, evaluacionId, intento])
+}
+
+// A5 — Registro de inicio de sesión para validación server-side del tiempo
+model SesionEvaluacion {
+  id           String   @id @default(cuid())
+  cedula       String
+  evaluacionId String
+  fichaId      String
+  iniciadoEn   DateTime @default(now())
+  expiradoEn   DateTime
+
+  @@unique([cedula, evaluacionId, fichaId])
+}
+
+// M3 — Incidencias antiplagio registradas en tiempo real por el servidor
+model IncidenciaAntiplagio {
+  id           String   @id @default(cuid())
+  cedula       String
+  evaluacionId String
+  fichaId      String
+  evento       String
+  registradoEn DateTime @default(now())
 }

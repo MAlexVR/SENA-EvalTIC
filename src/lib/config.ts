@@ -22,10 +22,16 @@ export const APP_CONFIG = {
   bancoPreguntasTotal: 50, // Total de preguntas en el banco
   totalQuestions: 10, // Preguntas aleatorias por evaluación
   distribucionPreguntas: {
-    seleccion_unica: 5, // 5 de selección única
-    seleccion_multiple: 3, // 3 de selección múltiple
-    emparejamiento: 2, // 2 de emparejamiento
-  },
+    seleccion_unica: 5,
+    seleccion_multiple: 3,
+    emparejamiento: 2,
+    verdadero_falso: 0,
+    completar: 0,
+    ordenamiento: 0,
+    hotspot: 0,
+    clasificacion: 0,
+    numerica: 0,
+  } as Record<string, number>,
   timeLimitMinutes: 15,
   passingScorePercentage: 65,
   aleatorizarOpciones: true, // Aleatorizar opciones de respuesta

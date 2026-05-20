@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   DndContext,
   closestCenter,
@@ -30,10 +30,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  GripVertical, Pencil, Trash2, Plus, Save, PlusCircle, Loader2, AlertCircle, FileDown,
+  GripVertical, Pencil, Trash2, Plus, Save, PlusCircle, Loader2, AlertCircle, FileDown, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Pregunta, TipoPregunta, Opcion, Par } from "@/types/preguntas";
+import type { Pregunta, TipoPregunta, Opcion, Par, PreguntaSeleccionUnica, PreguntaSeleccionMultiple } from "@/types/preguntas";
 import { TIPO_LABELS } from "@/types/preguntas";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -46,6 +46,62 @@ function newBlankPregunta(tipo: TipoPregunta): Pregunta {
   const base = { id: genId(), tipo, enunciado: "", retroalimentacion: "" };
   if (tipo === "emparejamiento") {
     return { ...base, tipo: "emparejamiento", pares: [{ izquierda: "", derecha: "" }, { izquierda: "", derecha: "" }] };
+  }
+  if (tipo === "verdadero_falso") {
+    return { ...base, tipo: "verdadero_falso", respuestaCorrecta: ["verdadero"] } as unknown as Pregunta;
+  }
+  if (tipo === "numerica") {
+    return { ...base, tipo: "numerica", respuestaCorrecta: 0, tolerancia: 0, unidad: "" } as unknown as Pregunta;
+  }
+  if (tipo === "ordenamiento") {
+    const e1 = genId();
+    const e2 = genId();
+    return {
+      ...base,
+      tipo: "ordenamiento",
+      instruccion: "",
+      elementos: [
+        { id: e1, texto: "" },
+        { id: e2, texto: "" },
+      ],
+      respuestaCorrecta: [e1, e2],
+    } as unknown as Pregunta;
+  }
+  if (tipo === "completar") {
+    return {
+      ...base,
+      tipo: "completar",
+      instruccion: "",
+      segmentos: [],
+    } as unknown as Pregunta;
+  }
+  if (tipo === "clasificacion") {
+    const c1 = genId();
+    const c2 = genId();
+    return {
+      ...base,
+      tipo: "clasificacion",
+      instruccion: "",
+      categorias: [
+        { id: c1, etiqueta: "" },
+        { id: c2, etiqueta: "" },
+      ],
+      elementos: [
+        { id: genId(), texto: "" },
+        { id: genId(), texto: "" },
+      ],
+      respuestaCorrecta: {},
+    } as unknown as Pregunta;
+  }
+  if (tipo === "hotspot") {
+    return {
+      ...base,
+      tipo: "hotspot",
+      instruccion: "",
+      imagen: "",
+      imagenAlt: "",
+      zonaCorrecta: { cx: 50, cy: 50, radio: 10 },
+    } as unknown as Pregunta;
   }
   const opciones: Opcion[] = [
     { id: "a", texto: "" },
@@ -63,6 +119,12 @@ const TIPO_COLORS: Record<TipoPregunta, string> = {
   seleccion_unica: "border-sena-blue text-sena-blue",
   seleccion_multiple: "border-amber-500 text-amber-600",
   emparejamiento: "border-sena-green text-sena-green",
+  verdadero_falso: "border-purple-500 text-purple-600",
+  completar: "border-cyan-500 text-cyan-600",
+  ordenamiento: "border-orange-500 text-orange-600",
+  hotspot: "border-rose-500 text-rose-600",
+  clasificacion: "border-teal-500 text-teal-600",
+  numerica: "border-indigo-500 text-indigo-600",
 };
 
 // ── Sortable item ─────────────────────────────────────────────────────────────
@@ -161,6 +223,11 @@ function EditPreguntaDialog({
 }) {
   const [draft, setDraft] = useState<Pregunta | null>(pregunta);
   const [validationError, setValidationError] = useState<string | null>(null);
+  // Hotspot editor state (only used when tipo === "hotspot")
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync draft when dialog opens
   if (open && pregunta && draft?.id !== pregunta.id) {
@@ -171,29 +238,70 @@ function EditPreguntaDialog({
   if (!draft) return null;
 
   const updateDraft = (update: Partial<Pregunta>) =>
-    setDraft((prev) => (prev ? { ...prev, ...update } as Pregunta : prev));
+    setDraft((prev) => (prev ? { ...prev, ...update } as unknown as Pregunta : prev));
 
   const handleTypeChange = (tipo: TipoPregunta) => {
     if (!draft) return;
     const base = { id: draft.id, enunciado: draft.enunciado, retroalimentacion: "retroalimentacion" in draft ? draft.retroalimentacion : "" };
     setDraft(newBlankPregunta(tipo));
-    setDraft((prev) => prev ? { ...prev, id: base.id, enunciado: base.enunciado, retroalimentacion: base.retroalimentacion } as Pregunta : prev);
+    setDraft((prev) => prev ? { ...prev, id: base.id, enunciado: base.enunciado, retroalimentacion: base.retroalimentacion } as unknown as Pregunta : prev);
   };
 
   const validate = (): string | null => {
-    if (!draft.enunciado.trim()) return "El texto de la pregunta es requerido.";
+    if (!(draft.enunciado ?? "").trim()) return "El texto de la pregunta es requerido.";
     if (draft.tipo === "emparejamiento") {
       if (draft.pares.length < 2) return "Se requieren al menos 2 pares.";
       if (draft.pares.some((p) => !p.izquierda.trim() || !p.derecha.trim()))
         return "Todos los pares deben tener texto en ambos lados.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "verdadero_falso") {
+      const vf = draft as unknown as { respuestaCorrecta: string[] };
+      if (!vf.respuestaCorrecta?.[0]) return "Debe seleccionar la respuesta correcta.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "numerica") {
+      const num = draft as unknown as { respuestaCorrecta: number; tolerancia: number };
+      if (num.respuestaCorrecta === undefined || num.respuestaCorrecta === null || isNaN(num.respuestaCorrecta))
+        return "Debe ingresar la respuesta correcta.";
+      if (num.tolerancia === undefined || num.tolerancia === null || isNaN(num.tolerancia) || num.tolerancia < 0)
+        return "La tolerancia debe ser un número mayor o igual a 0.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "ordenamiento") {
+      const ord = draft as unknown as { elementos: { id: string; texto: string }[]; respuestaCorrecta: string[] };
+      if (!ord.elementos || ord.elementos.length < 2) return "Se requieren al menos 2 elementos.";
+      if (ord.elementos.some((e) => !e.texto.trim())) return "Todos los elementos deben tener texto.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "completar") {
+      const comp = draft as unknown as { segmentos: any[] };
+      const espacios = (comp.segmentos ?? []).filter((s: any) => s.tipo === "espacio");
+      if (espacios.length === 0) return "Debe incluir al menos un espacio [[id]] en la oración.";
+      const espaciosInvalidos = espacios.filter((s: any) => !s.respuestaCorrecta?.trim());
+      if (espaciosInvalidos.length > 0) return "Todos los espacios deben tener una respuesta correcta.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "clasificacion") {
+      const clas = draft as unknown as {
+        categorias: { id: string; etiqueta: string }[];
+        elementos: { id: string; texto: string }[];
+        respuestaCorrecta: Record<string, string[]>;
+      };
+      if (!clas.categorias || clas.categorias.length < 2) return "Se requieren al menos 2 categorías.";
+      if (clas.categorias.some((c) => !c.etiqueta.trim())) return "Todas las categorías deben tener una etiqueta.";
+      if (!clas.elementos || clas.elementos.length < 2) return "Se requieren al menos 2 elementos.";
+      if (clas.elementos.some((e) => !e.texto.trim())) return "Todos los elementos deben tener texto.";
+      const allAssigned = clas.elementos.every((e) =>
+        Object.values(clas.respuestaCorrecta).some((arr) => arr.includes(e.id))
+      );
+      if (!allAssigned) return "Todos los elementos deben estar asignados a una categoría en la respuesta correcta.";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else if ((draft as any).tipo === "hotspot") {
+      // Hotspot has no sub-editor — JSON only. No validation needed here.
     } else {
-      const opts = draft.opciones;
+      const opts = (draft as unknown as { opciones: Opcion[] }).opciones ?? [];
       if (opts.length < 2) return "Se requieren al menos 2 opciones.";
-      if (opts.some((o) => !o.texto.trim())) return "Todas las opciones deben tener texto.";
+      if (opts.some((o: Opcion) => !o.texto.trim())) return "Todas las opciones deben tener texto.";
       if (draft.tipo === "seleccion_unica") {
-        if (!draft.respuestaCorrecta) return "Debe seleccionar una respuesta correcta.";
+        if (!(draft as PreguntaSeleccionUnica).respuestaCorrecta) return "Debe seleccionar una respuesta correcta.";
       } else {
-        if (!draft.respuestaCorrecta.length) return "Debe seleccionar al menos una respuesta correcta.";
+        if (!(draft as PreguntaSeleccionMultiple).respuestaCorrecta.length) return "Debe seleccionar al menos una respuesta correcta.";
       }
     }
     return null;
@@ -209,19 +317,24 @@ function EditPreguntaDialog({
   // ── Opción actions ──
   const addOpcion = () => {
     if (draft.tipo === "emparejamiento") return;
-    const newId = String.fromCharCode(97 + draft.opciones.length); // a, b, c...
-    updateDraft({ opciones: [...draft.opciones, { id: newId, texto: "" }] } as Partial<Pregunta>);
+    const curOpts = (draft as unknown as { opciones: Opcion[] }).opciones ?? [];
+    const newId = String.fromCharCode(97 + curOpts.length); // a, b, c...
+    updateDraft({ opciones: [...curOpts, { id: newId, texto: "" }] } as Partial<Pregunta>);
   };
 
   const updateOpcion = (idx: number, texto: string) => {
     if (draft.tipo === "emparejamiento") return;
-    const opciones = draft.opciones.map((o, i) => (i === idx ? { ...o, texto } : o));
+    const opciones = (draft as unknown as { opciones: Opcion[] }).opciones.map(
+      (o: Opcion, i: number) => (i === idx ? { ...o, texto } : o)
+    );
     updateDraft({ opciones } as Partial<Pregunta>);
   };
 
   const removeOpcion = (idx: number) => {
     if (draft.tipo === "emparejamiento") return;
-    const opciones = draft.opciones.filter((_, i) => i !== idx);
+    const opciones = (draft as unknown as { opciones: Opcion[] }).opciones.filter(
+      (_: Opcion, i: number) => i !== idx
+    );
     updateDraft({ opciones } as Partial<Pregunta>);
   };
 
@@ -263,6 +376,12 @@ function EditPreguntaDialog({
               <option value="seleccion_unica">Selección única</option>
               <option value="seleccion_multiple">Selección múltiple</option>
               <option value="emparejamiento">Emparejamiento</option>
+              <option value="verdadero_falso">Verdadero / Falso</option>
+              <option value="numerica">Numérica</option>
+              <option value="ordenamiento">Ordenamiento</option>
+              <option value="completar">Completar espacios</option>
+              <option value="clasificacion">Clasificación</option>
+              <option value="hotspot">Punto activo</option>
             </select>
           </div>
 
@@ -388,6 +507,800 @@ function EditPreguntaDialog({
               </Button>
             </div>
           )}
+
+          {/* ── Verdadero / Falso ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "verdadero_falso" && (() => {
+            const draftVf = draft as unknown as { id: string; tipo: string; respuestaCorrecta: string[] };
+            return (
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-semibold text-sena-blue">Respuesta correcta *</Label>
+                <div className="flex gap-3">
+                  {(["verdadero", "falso"] as const).map((valor) => {
+                    const isSelected = draftVf.respuestaCorrecta?.[0] === valor;
+                    return (
+                      <label
+                        key={valor}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-sena-green bg-sena-green/5 text-sena-green font-bold"
+                            : "border-sena-gray-dark/20 text-sena-gray-dark/60 hover:border-sena-green/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name={`vf-${draftVf.id}`}
+                          checked={isSelected}
+                          onChange={() =>
+                            setDraft((prev) =>
+                              prev
+                                ? ({ ...prev, respuestaCorrecta: [valor] } as unknown as Pregunta)
+                                : prev
+                            )
+                          }
+                          className="accent-sena-green"
+                        />
+                        {valor === "verdadero" ? "Verdadero" : "Falso"}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Numérica ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "numerica" && (() => {
+            const draftNum = draft as unknown as { respuestaCorrecta: number; tolerancia: number; unidad?: string };
+            return (
+              <div className="space-y-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Respuesta correcta *</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    className="h-8 text-sm"
+                    value={draftNum.respuestaCorrecta ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) =>
+                        prev
+                          ? ({ ...prev, respuestaCorrecta: parseFloat(e.target.value) } as unknown as Pregunta)
+                          : prev
+                      )
+                    }
+                    placeholder="Ej: 299792458"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Tolerancia (margen de error permitido) *</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="h-8 text-sm"
+                    value={draftNum.tolerancia ?? 0}
+                    onChange={(e) =>
+                      setDraft((prev) =>
+                        prev
+                          ? ({ ...prev, tolerancia: parseFloat(e.target.value) } as unknown as Pregunta)
+                          : prev
+                      )
+                    }
+                    placeholder="0"
+                  />
+                  <p className="text-[10px] text-sena-gray-dark/50">
+                    0 = coincidencia exacta. Ejemplo: tolerancia 5 acepta entre 95 y 105 si la respuesta es 100.
+                  </p>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Unidad (opcional)</Label>
+                  <Input
+                    type="text"
+                    className="h-8 text-sm"
+                    value={draftNum.unidad ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) =>
+                        prev
+                          ? ({ ...prev, unidad: e.target.value } as unknown as Pregunta)
+                          : prev
+                      )
+                    }
+                    placeholder="m/s"
+                  />
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Ordenamiento ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "ordenamiento" && (() => {
+            const draftOrd = draft as unknown as {
+              id: string;
+              instruccion?: string;
+              elementos: { id: string; texto: string }[];
+              respuestaCorrecta: string[];
+            };
+
+            const addElemento = () => {
+              const newId = genId();
+              const newElementos = [...draftOrd.elementos, { id: newId, texto: "" }];
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, elementos: newElementos, respuestaCorrecta: newElementos.map((e) => e.id) } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const updateElementoTexto = (idx: number, texto: string) => {
+              const newElementos = draftOrd.elementos.map((e, i) =>
+                i === idx ? { ...e, texto } : e
+              );
+              setDraft((prev) =>
+                prev ? ({ ...prev, elementos: newElementos } as unknown as Pregunta) : prev
+              );
+            };
+
+            const removeElemento = (idx: number) => {
+              const newElementos = draftOrd.elementos.filter((_, i) => i !== idx);
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, elementos: newElementos, respuestaCorrecta: newElementos.map((e) => e.id) } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const moveElemento = (fromIdx: number, toIdx: number) => {
+              const newElementos = [...draftOrd.elementos];
+              const [moved] = newElementos.splice(fromIdx, 1);
+              newElementos.splice(toIdx, 0, moved);
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, elementos: newElementos, respuestaCorrecta: newElementos.map((e) => e.id) } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            return (
+              <div className="space-y-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción (opcional)</Label>
+                  <textarea
+                    className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={draftOrd.instruccion ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) =>
+                        prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev
+                      )
+                    }
+                    placeholder="Ej: Ordena los pasos del proceso de forma correcta."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-sena-blue">
+                    Elementos y orden correcto *
+                  </Label>
+                  <p className="text-[10px] text-sena-gray-dark/50">
+                    Agrega los elementos. El orden de la lista define la respuesta correcta. Usa los botones ↑↓ para reordenar.
+                  </p>
+                  {draftOrd.elementos.map((elem, idx) => (
+                    <div key={elem.id} className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-sena-gray-dark/40 w-5 text-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <Input
+                        className="h-8 text-sm flex-1"
+                        value={elem.texto}
+                        onChange={(e) => updateElementoTexto(idx, e.target.value)}
+                        placeholder={`Elemento ${idx + 1}`}
+                      />
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-6 text-sena-gray-dark/40 hover:text-sena-blue"
+                          onClick={() => idx > 0 && moveElemento(idx, idx - 1)}
+                          disabled={idx === 0}
+                          aria-label="Mover arriba"
+                        >
+                          ↑
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-6 text-sena-gray-dark/40 hover:text-sena-blue"
+                          onClick={() => idx < draftOrd.elementos.length - 1 && moveElemento(idx, idx + 1)}
+                          disabled={idx === draftOrd.elementos.length - 1}
+                          aria-label="Mover abajo"
+                        >
+                          ↓
+                        </Button>
+                      </div>
+                      {draftOrd.elementos.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:bg-red-50 shrink-0"
+                          onClick={() => removeElemento(idx)}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-sena-green hover:text-sena-green-dark h-7"
+                    onClick={addElemento}
+                  >
+                    <Plus size={12} />
+                    Agregar elemento
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Completar espacios ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "completar" && (() => {
+            const draftComp = draft as unknown as {
+              instruccion?: string;
+              segmentos: Array<{ tipo: "texto" | "espacio"; contenido?: string; id?: string; respuestaCorrecta?: string; opciones?: string[] }>;
+            };
+
+            // Parse [[id]] tokens from raw text to build segmentos array
+            const parseOracion = (oracion: string) => {
+              const parts = oracion.split(/(\[\[[\w-]+\]\])/g);
+              const segs: typeof draftComp.segmentos = [];
+              const existingEspacios = draftComp.segmentos.filter((s) => s.tipo === "espacio");
+
+              for (const part of parts) {
+                const match = part.match(/^\[\[([\w-]+)\]\]$/);
+                if (match) {
+                  const id = match[1];
+                  const existing = existingEspacios.find((s) => s.id === id);
+                  segs.push({
+                    tipo: "espacio",
+                    id,
+                    respuestaCorrecta: existing?.respuestaCorrecta ?? "",
+                    opciones: existing?.opciones ?? [],
+                  });
+                } else if (part) {
+                  segs.push({ tipo: "texto", contenido: part });
+                }
+              }
+              return segs;
+            };
+
+            // Reconstruct raw oracion text from segmentos for the textarea
+            const buildOracion = (segs: typeof draftComp.segmentos) =>
+              segs.map((s) => (s.tipo === "texto" ? s.contenido : `[[${s.id}]]`)).join("");
+
+            const rawOracion = buildOracion(draftComp.segmentos);
+            const espacioSegs = draftComp.segmentos.filter((s) => s.tipo === "espacio") as Array<{
+              tipo: "espacio"; id: string; respuestaCorrecta?: string; opciones?: string[];
+            }>;
+
+            const handleOracionChange = (value: string) => {
+              const newSegmentos = parseOracion(value);
+              setDraft((prev) => prev ? ({ ...prev, segmentos: newSegmentos } as unknown as Pregunta) : prev);
+            };
+
+            const updateEspacio = (id: string, field: "respuestaCorrecta" | "opciones", value: string | string[]) => {
+              const newSegmentos = draftComp.segmentos.map((s) =>
+                s.tipo === "espacio" && s.id === id ? { ...s, [field]: value } : s
+              );
+              setDraft((prev) => prev ? ({ ...prev, segmentos: newSegmentos } as unknown as Pregunta) : prev);
+            };
+
+            return (
+              <div className="space-y-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción (opcional)</Label>
+                  <textarea
+                    className="flex min-h-[50px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={draftComp.instruccion ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) => prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev)
+                    }
+                    placeholder="Ej: Completa los espacios con la palabra correcta."
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Oración con espacios *</Label>
+                  <p className="text-[10px] text-sena-gray-dark/50">
+                    Escribe la oración y usa {"[[id]]"} para marcar cada espacio en blanco. Ejemplo: El agua hierve a {"[[temp]]"} grados.
+                  </p>
+                  <textarea
+                    className="flex min-h-[70px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none font-mono"
+                    value={rawOracion}
+                    onChange={(e) => handleOracionChange(e.target.value)}
+                    placeholder="El agua hierve a [[temp]] grados Celsius a presión estándar."
+                  />
+                </div>
+
+                {espacioSegs.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-sena-blue">Configurar espacios detectados *</Label>
+                    {espacioSegs.map((espacio) => (
+                      <div key={espacio.id} className="border border-sena-gray-dark/10 rounded-lg p-3 space-y-2 bg-sena-gray-light/30">
+                        <p className="text-xs font-bold text-cyan-600">Espacio: [[{espacio.id}]]</p>
+                        <div className="grid gap-1">
+                          <Label className="text-[10px] text-sena-gray-dark/70">Respuesta correcta *</Label>
+                          <Input
+                            className="h-7 text-xs"
+                            value={espacio.respuestaCorrecta ?? ""}
+                            onChange={(e) => updateEspacio(espacio.id, "respuestaCorrecta", e.target.value)}
+                            placeholder="Respuesta esperada"
+                          />
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-[10px] text-sena-gray-dark/70">
+                            Opciones para dropdown (opcional, separadas por coma)
+                          </Label>
+                          <Input
+                            className="h-7 text-xs"
+                            value={(espacio.opciones ?? []).join(", ")}
+                            onChange={(e) => {
+                              const opts = e.target.value
+                                .split(",")
+                                .map((o) => o.trim())
+                                .filter(Boolean);
+                              updateEspacio(espacio.id, "opciones", opts);
+                            }}
+                            placeholder="Ej: 0, 100, -273"
+                          />
+                          <p className="text-[10px] text-sena-gray-dark/40">
+                            Si está vacío, el aprendiz escribirá libremente. Si tiene opciones, verá un menú desplegable.
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Clasificacion ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "clasificacion" && (() => {
+            const draftClas = draft as unknown as {
+              instruccion?: string;
+              categorias: { id: string; etiqueta: string }[];
+              elementos: { id: string; texto: string }[];
+              respuestaCorrecta: Record<string, string[]>;
+            };
+
+            const addCategoria = () => {
+              const newId = genId();
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, categorias: [...draftClas.categorias, { id: newId, etiqueta: "" }] } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const updateCategoria = (idx: number, etiqueta: string) => {
+              const newCategorias = draftClas.categorias.map((c, i) => (i === idx ? { ...c, etiqueta } : c));
+              setDraft((prev) => prev ? ({ ...prev, categorias: newCategorias } as unknown as Pregunta) : prev);
+            };
+
+            const removeCategoria = (idx: number) => {
+              const removed = draftClas.categorias[idx];
+              const newCategorias = draftClas.categorias.filter((_, i) => i !== idx);
+              // Remove removed category from respuestaCorrecta
+              const newRC = { ...draftClas.respuestaCorrecta };
+              delete newRC[removed.id];
+              setDraft((prev) =>
+                prev ? ({ ...prev, categorias: newCategorias, respuestaCorrecta: newRC } as unknown as Pregunta) : prev
+              );
+            };
+
+            const addElemento = () => {
+              const newId = genId();
+              setDraft((prev) =>
+                prev
+                  ? ({ ...prev, elementos: [...draftClas.elementos, { id: newId, texto: "" }] } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const updateElemento = (idx: number, texto: string) => {
+              const newElementos = draftClas.elementos.map((e, i) => (i === idx ? { ...e, texto } : e));
+              setDraft((prev) => prev ? ({ ...prev, elementos: newElementos } as unknown as Pregunta) : prev);
+            };
+
+            const removeElemento = (idx: number) => {
+              const removed = draftClas.elementos[idx];
+              const newElementos = draftClas.elementos.filter((_, i) => i !== idx);
+              // Remove element from respuestaCorrecta
+              const newRC: Record<string, string[]> = {};
+              for (const [catId, arr] of Object.entries(draftClas.respuestaCorrecta)) {
+                newRC[catId] = (arr as string[]).filter((id) => id !== removed.id);
+              }
+              setDraft((prev) =>
+                prev ? ({ ...prev, elementos: newElementos, respuestaCorrecta: newRC } as unknown as Pregunta) : prev
+              );
+            };
+
+            const assignElemento = (elementoId: string, categoriaId: string) => {
+              const newRC: Record<string, string[]> = {};
+              // Remove element from all categories first
+              for (const cat of draftClas.categorias) {
+                newRC[cat.id] = (draftClas.respuestaCorrecta[cat.id] ?? []).filter((id) => id !== elementoId);
+              }
+              // Assign to new category
+              if (categoriaId && categoriaId !== "__none__") {
+                newRC[categoriaId] = [...(newRC[categoriaId] ?? []), elementoId];
+              }
+              setDraft((prev) => prev ? ({ ...prev, respuestaCorrecta: newRC } as unknown as Pregunta) : prev);
+            };
+
+            // Build element → current assigned category (from respuestaCorrecta)
+            const elementoToCategoria: Record<string, string> = {};
+            for (const [catId, arr] of Object.entries(draftClas.respuestaCorrecta)) {
+              for (const elemId of (arr as string[])) {
+                elementoToCategoria[elemId] = catId;
+              }
+            }
+
+            return (
+              <div className="space-y-3">
+                {/* Instruccion */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción (opcional)</Label>
+                  <textarea
+                    className="flex min-h-[50px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={draftClas.instruccion ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) => prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev)
+                    }
+                    placeholder="Ej: Clasifica cada organismo en el reino al que pertenece."
+                  />
+                </div>
+
+                {/* Categorías */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-sena-blue">Categorías *</Label>
+                  {draftClas.categorias.map((cat, idx) => (
+                    <div key={cat.id} className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-teal-600 w-5 text-center shrink-0">{idx + 1}</span>
+                      <Input
+                        className="h-8 text-sm flex-1"
+                        value={cat.etiqueta}
+                        onChange={(e) => updateCategoria(idx, e.target.value)}
+                        placeholder={`Categoría ${idx + 1}`}
+                      />
+                      {draftClas.categorias.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:bg-red-50 shrink-0"
+                          onClick={() => removeCategoria(idx)}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-sena-green hover:text-sena-green-dark h-7"
+                    onClick={addCategoria}
+                  >
+                    <Plus size={12} />
+                    Agregar categoría
+                  </Button>
+                </div>
+
+                {/* Elementos */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-sena-blue">Elementos *</Label>
+                  {draftClas.elementos.map((elem, idx) => (
+                    <div key={elem.id} className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-sena-gray-dark/40 w-5 text-center shrink-0">{idx + 1}</span>
+                      <Input
+                        className="h-8 text-sm flex-1"
+                        value={elem.texto}
+                        onChange={(e) => updateElemento(idx, e.target.value)}
+                        placeholder={`Elemento ${idx + 1}`}
+                      />
+                      {draftClas.elementos.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:bg-red-50 shrink-0"
+                          onClick={() => removeElemento(idx)}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-sena-green hover:text-sena-green-dark h-7"
+                    onClick={addElemento}
+                  >
+                    <Plus size={12} />
+                    Agregar elemento
+                  </Button>
+                </div>
+
+                {/* Respuesta correcta — assign each element to a category */}
+                {draftClas.elementos.length > 0 && draftClas.categorias.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-sena-blue">
+                      Respuesta correcta — asignar cada elemento a su categoría *
+                    </Label>
+                    {draftClas.elementos.map((elem) => {
+                      const currentCat = elementoToCategoria[elem.id] ?? "__none__";
+                      return (
+                        <div key={elem.id} className="flex items-center gap-2">
+                          <span className="text-xs text-sena-gray-dark/70 flex-1 truncate">
+                            {elem.texto || <span className="italic">(sin texto)</span>}
+                          </span>
+                          <select
+                            className="h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm w-44 shrink-0"
+                            value={currentCat}
+                            onChange={(e) => assignElemento(elem.id, e.target.value)}
+                          >
+                            <option value="__none__">— Sin asignar —</option>
+                            {draftClas.categorias.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.etiqueta || `Categoría ${draftClas.categorias.indexOf(cat) + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Hotspot ── */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(draft as any).tipo === "hotspot" && (() => {
+            const draftHotspot = draft as unknown as {
+              instruccion?: string;
+              imagen?: string;
+              imagenAlt?: string;
+              zonaCorrecta?: { cx: number; cy: number; radio: number };
+            };
+
+            const zona = draftHotspot.zonaCorrecta ?? { cx: 50, cy: 50, radio: 10 };
+
+            const handleImageUpload = async (file: File) => {
+              setUploadingImg(true);
+              setUploadError(null);
+              try {
+                const formData = new FormData();
+                formData.append("file", file);
+                const res = await fetch("/api/instructor/upload-image", {
+                  method: "POST",
+                  body: formData,
+                });
+                if (!res.ok) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const data = await res.json().catch(() => ({} as any));
+                  throw new Error(data?.error ?? `Error ${res.status}`);
+                }
+                const { url } = await res.json();
+                setDraft((prev) =>
+                  prev ? ({ ...prev, imagen: url } as unknown as Pregunta) : prev
+                );
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              } catch (err: any) {
+                setUploadError(err?.message ?? "Error al subir imagen. Verifique las credenciales de Cloudinary en el Perfil del instructor.");
+              } finally {
+                setUploadingImg(false);
+              }
+            };
+
+            const updateZona = (field: "cx" | "cy" | "radio", value: number) => {
+              setDraft((prev) =>
+                prev
+                  ? ({
+                      ...prev,
+                      zonaCorrecta: {
+                        ...((prev as unknown as { zonaCorrecta: { cx: number; cy: number; radio: number } }).zonaCorrecta ?? { cx: 50, cy: 50, radio: 10 }),
+                        [field]: value,
+                      },
+                    } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const cx = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10;
+              const cy = Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 10;
+              setDraft((prev) =>
+                prev
+                  ? ({
+                      ...prev,
+                      zonaCorrecta: {
+                        ...((prev as unknown as { zonaCorrecta: { cx: number; cy: number; radio: number } }).zonaCorrecta ?? { radio: 10 }),
+                        cx,
+                        cy,
+                      },
+                    } as unknown as Pregunta)
+                  : prev
+              );
+            };
+
+            return (
+              <div className="space-y-3">
+                {/* Instrucción */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Instrucción</Label>
+                  <textarea
+                    className="flex min-h-[50px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={draftHotspot.instruccion ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) => prev ? ({ ...prev, instruccion: e.target.value } as unknown as Pregunta) : prev)
+                    }
+                    placeholder="Ej: Haz clic sobre el Router en la topología de red."
+                  />
+                </div>
+
+                {/* Alt text */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Texto alternativo (accesibilidad)</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={draftHotspot.imagenAlt ?? ""}
+                    onChange={(e) =>
+                      setDraft((prev) => prev ? ({ ...prev, imagenAlt: e.target.value } as unknown as Pregunta) : prev)
+                    }
+                    placeholder="Ej: Diagrama de topología de red estrella con router central"
+                  />
+                </div>
+
+                {/* Imagen — drop zone o editor visual */}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs font-semibold text-sena-blue">Imagen *</Label>
+
+                  {!draftHotspot.imagen ? (
+                    /* ── Drop zone ── */
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
+                      onDragLeave={() => setIsDraggingOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingOver(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file?.type.startsWith("image/")) handleImageUpload(file);
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 cursor-pointer transition-colors ${
+                        isDraggingOver
+                          ? "border-sena-green bg-sena-green/5"
+                          : "border-sena-gray-dark/20 hover:border-sena-blue/40 hover:bg-sena-blue/5"
+                      }`}
+                    >
+                      {uploadingImg ? (
+                        <Loader2 size={24} className="animate-spin text-sena-blue/40" />
+                      ) : (
+                        <Upload size={24} className="text-sena-gray-dark/30" />
+                      )}
+                      <p className="text-sm text-sena-gray-dark/60">
+                        {uploadingImg ? "Subiendo a Cloudinary…" : "Arrastra la imagen aquí o haz clic para seleccionar"}
+                      </p>
+                      <p className="text-[10px] text-sena-gray-dark/40">
+                        La imagen se sube a tu cuenta de Cloudinary configurada en el Perfil
+                      </p>
+                    </div>
+                  ) : (
+                    /* ── Editor visual ── */
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-sena-green font-semibold">✓ Imagen cargada</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingImg}
+                        >
+                          {uploadingImg ? <Loader2 size={12} className="animate-spin mr-1" /> : null}
+                          Cambiar imagen
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-sena-gray-dark/50">
+                        Haz clic en la imagen para posicionar el centro de la zona correcta. Ajusta el radio de tolerancia con el control deslizante.
+                      </p>
+                      {/* Imagen interactiva con overlay SVG */}
+                      <div
+                        className="relative cursor-crosshair select-none rounded-lg overflow-hidden border border-sena-gray-dark/10"
+                        onClick={handleImageClick}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={draftHotspot.imagen}
+                          alt={draftHotspot.imagenAlt ?? ""}
+                          className="max-w-full h-auto block"
+                          draggable={false}
+                        />
+                        <svg
+                          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
+                        >
+                          {/* Radio de tolerancia */}
+                          <circle
+                            cx={zona.cx}
+                            cy={zona.cy}
+                            r={zona.radio}
+                            fill="rgba(57, 169, 0, 0.12)"
+                            stroke="#39A900"
+                            strokeWidth="0.6"
+                            strokeDasharray="2 1.5"
+                          />
+                          {/* Centro — cruz */}
+                          <line x1={zona.cx - 3} y1={zona.cy} x2={zona.cx + 3} y2={zona.cy} stroke="#39A900" strokeWidth="0.8" />
+                          <line x1={zona.cx} y1={zona.cy - 3} x2={zona.cx} y2={zona.cy + 3} stroke="#39A900" strokeWidth="0.8" />
+                          <circle cx={zona.cx} cy={zona.cy} r="1" fill="#39A900" />
+                        </svg>
+                      </div>
+                      {/* Radio slider */}
+                      <div className="flex items-center gap-3 mt-1">
+                        <Label className="text-[11px] text-sena-gray-dark/60 shrink-0 w-32">Radio de tolerancia</Label>
+                        <input
+                          type="range"
+                          min={1}
+                          max={40}
+                          step={0.5}
+                          value={zona.radio}
+                          onChange={(e) => updateZona("radio", Number(e.target.value))}
+                          className="flex-1 accent-sena-green"
+                        />
+                        <span className="text-xs font-mono text-sena-blue w-10 text-right">{zona.radio}%</span>
+                      </div>
+                      <p className="text-[10px] text-sena-gray-dark/40 font-mono">
+                        Centro ({zona.cx.toFixed(1)}%, {zona.cy.toFixed(1)}%) · Radio {zona.radio}%
+                      </p>
+                    </div>
+                  )}
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  {uploadError && (
+                    <p className="text-xs text-red-600">{uploadError}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Retroalimentación */}
           <div className="grid gap-1.5">
@@ -584,7 +1497,7 @@ export function PreguntasEditor({
                   pregunta={p}
                   index={idx}
                   onEdit={() => openEdit(p)}
-                  onDelete={() => handleDelete(p.id)}
+                  onDelete={() => handleDelete(String(p.id))}
                 />
               ))}
             </div>

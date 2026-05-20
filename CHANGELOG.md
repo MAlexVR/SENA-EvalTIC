@@ -5,6 +5,55 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y el v
 
 ---
 
+## [1.5.0] - 2026-05-20
+
+### Added
+- (antiplagio) Endpoint `POST /api/evaluacion/heartbeat` — registra cada evento de cambio de foco o visibilidad en BD (server-side) sin depender del contador del cliente
+- (antiplagio) Modelo `IncidenciaAntiplagio` en Prisma: almacena `cedula`, `evaluacionId`, `fichaId`, `evento` y `registradoEn` por servidor
+- (seguridad) CSP con nonces por petición (M4): middleware genera un nonce criptográfico aleatorio via Web Crypto API por cada request; elimina `unsafe-inline` de scripts en producción
+- (seguridad) Validación server-side del tiempo de evaluación (A5): modelo `SesionEvaluacion` registra `iniciadoEn` en BD al iniciar; `finalizar` calcula `tiempoUsadoFinal` desde BD, ignorando el valor enviado por el cliente
+
+### Fixed
+- (aprendiz) Formulario de ingreso mostraba todos los campos del modo legacy (nombres, apellidos, documento…) cuando la BD estaba vacía pero `USE_DB_BACKEND=true`; ahora muestra solo ficha + cédula y un aviso de "sin evaluaciones activas"
+
+### Changed
+- (antiplagio) `finalizar` cuenta incidencias desde BD (`prisma.incidenciaAntiplagio.count`) en lugar de confiar en el entero enviado por el cliente
+- (seguridad) CSP retirado de `next.config.ts` y delegado exclusivamente a `src/middleware.ts` con nonces dinámicos
+
+---
+
+## [1.4.0] - 2026-05-17
+
+### Added
+- (preguntas) Seis nuevos tipos de pregunta: `verdadero_falso`, `numerica`, `ordenamiento`, `completar`, `clasificacion` y `hotspot`
+  - `ordenamiento`: arrastra elementos para definir el orden correcto (DnD)
+  - `completar`: rellena espacios en blanco inline con texto libre o desplegable
+  - `clasificacion`: asigna elementos a categorías mediante selector
+  - `hotspot`: imagen con punto de respuesta y radio de tolerancia configurable; editor visual con drag & drop
+  - `verdadero_falso`: dos botones Verdadero/Falso; sin opciones adicionales
+  - `numerica`: campo numérico con valor correcto y tolerancia configurable
+- (preguntas) Crédito parcial en `ordenamiento` (posición exacta), `completar` (por espacio) y `clasificacion` (por elemento)
+- (perfil) Configuración Cloudinary por instructor: Cloud Name, API Key y API Secret (encriptado) para subir imágenes de preguntas
+- (perfil) Endpoint `POST /api/instructor/upload-image` — upload de imágenes al Cloudinary del instructor desde el editor de preguntas
+- (preguntas) Seguridad: sanitización profunda elimina `zonaCorrecta` (hotspot) y `segmentos[].respuestaCorrecta` (completar) antes de enviar al cliente
+- (preguntas) `prepareQuestionsForClient` extraído a `src/lib/question-preparation.ts`; compartido entre `iniciar` y `prueba` sin duplicación
+- (testing) vitest configurado como test runner; 43 pruebas unitarias para sanitización y scoring de los 9 tipos
+- (evaluaciones) Banco de preguntas opcional al crear: el instructor puede crear la evaluación sin JSON y agregar preguntas manualmente desde el editor tras la creación
+
+### Changed
+- (preguntas) `distribucionPreguntas` en formulario de evaluación ahora expone los 9 tipos; los 6 nuevos quedan en 0 por defecto
+- (preguntas) `distribucionPreguntas` generalizado a `Record<string, number>` — acepta cualquier tipo nuevo sin cambiar el schema
+- (preguntas) Filtro de tipos en `iniciar` y `prueba` generalizado: usa las claves de `distribucionPreguntas` en vez de lista hardcodeada de 3 tipos
+- (preguntas) `JsonUploader` muestra estadísticas para los 9 tipos al cargar un banco
+- (hotspot) Modelo rediseñado: `zonaCorrecta {cx, cy, radio}` reemplaza array de zonas SVG; scoring por distancia euclidiana; el aprendiz hace un clic y ve solo su pin; el radio es invisible para el aprendiz pero configurable por el instructor en el editor
+- (plantillas) Todos los tipos de pregunta usan ejemplos con temática OSI/redes (coherente con las preguntas base del banco)
+
+### Docs
+- Tabla "Tipos de preguntas disponibles" en README con Nivel Bloom, método de calificación y ejemplos JSON para los 6 tipos nuevos
+- README actualizado con nuevo modelo hotspot (`zonaCorrecta`) y tabla de campos
+
+---
+
 ## [1.3.0] - 2026-05-16
 
 ### Added

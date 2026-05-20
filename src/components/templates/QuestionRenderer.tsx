@@ -1,6 +1,7 @@
 "use client";
 
 import { useEvaluacionStore } from "@/stores/evaluacion-store";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { OrdenamientoRenderer } from "@/components/templates/questions/OrdenamientoRenderer";
+import { CompletarRenderer } from "@/components/templates/questions/CompletarRenderer";
+import { ClasificacionRenderer } from "@/components/templates/questions/ClasificacionRenderer";
+import { HotspotRenderer } from "@/components/templates/questions/HotspotRenderer";
 
 export function QuestionRenderer() {
   const {
@@ -47,6 +52,53 @@ export function QuestionRenderer() {
     responderPregunta({
       preguntaId: qId,
       respuestaIds: newIds,
+    });
+  };
+
+  const handleVerdaderoFalso = (valor: "verdadero" | "falso") => {
+    responderPregunta({
+      preguntaId: qId,
+      respuestaIds: [valor],
+    });
+  };
+
+  const handleNumerica = (rawValue: string) => {
+    const parsed = parseFloat(rawValue);
+    responderPregunta({
+      preguntaId: qId,
+      valorNumerico: isNaN(parsed) ? undefined : parsed,
+    });
+  };
+
+  const handleOrdenamiento = (newOrder: string[]) => {
+    responderPregunta({
+      preguntaId: qId,
+      ordenamiento: newOrder,
+    });
+  };
+
+  const handleCompletar = (espacioId: string, valor: string) => {
+    const prevEspacios = respuestaActual?.espacios ?? {};
+    responderPregunta({
+      preguntaId: qId,
+      espacios: {
+        ...prevEspacios,
+        [espacioId]: valor,
+      },
+    });
+  };
+
+  const handleClasificacion = (newClasificacion: Record<string, string[]>) => {
+    responderPregunta({
+      preguntaId: qId,
+      clasificacion: newClasificacion,
+    });
+  };
+
+  const handleHotspot = (click: { x: number; y: number }) => {
+    responderPregunta({
+      preguntaId: qId,
+      hotspotClick: click,
     });
   };
 
@@ -139,6 +191,140 @@ export function QuestionRenderer() {
                 </Label>
               );
             })}
+          </div>
+        )}
+
+        {/* Renderizado de Verdadero / Falso */}
+        {pregunta.tipo === "verdadero_falso" && (
+          <div className="flex flex-col sm:flex-row gap-4">
+            {(["verdadero", "falso"] as const).map((valor) => {
+              const isSelected = respuestaActual?.respuestaIds?.[0] === valor;
+              return (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => handleVerdaderoFalso(valor)}
+                  className={`flex-1 py-5 rounded-xl border-2 text-lg font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-sena-green bg-sena-green text-white shadow-md"
+                      : "border-sena-gray-dark/20 bg-white text-sena-blue hover:border-sena-green hover:bg-sena-green/5"
+                  }`}
+                >
+                  {valor === "verdadero" ? "Verdadero" : "Falso"}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Renderizado de Numérica */}
+        {pregunta.tipo === "numerica" && (
+          <div className="flex flex-col gap-4">
+            {pregunta.instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {pregunta.instruccion}
+              </p>
+            )}
+            <div className="flex items-center gap-3">
+              <Label htmlFor={`numerica-${qId}`} className="text-sm font-semibold text-sena-blue shrink-0">
+                Respuesta:
+              </Label>
+              <Input
+                id={`numerica-${qId}`}
+                type="number"
+                step="any"
+                className="w-48 text-base border-sena-gray-dark/30 focus-visible:ring-sena-green"
+                value={
+                  respuestaActual?.valorNumerico !== undefined && respuestaActual.valorNumerico !== null
+                    ? String(respuestaActual.valorNumerico)
+                    : ""
+                }
+                onChange={(e) => handleNumerica(e.target.value)}
+                placeholder="0"
+              />
+              {pregunta.unidad && (
+                <span className="text-sm font-semibold text-sena-gray-dark/70 shrink-0">
+                  {pregunta.unidad}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Renderizado de Ordenamiento */}
+        {pregunta.tipo === "ordenamiento" && (
+          <div className="flex flex-col gap-3">
+            {pregunta.instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {pregunta.instruccion}
+              </p>
+            )}
+            <p className="text-xs text-sena-gray-dark/50">
+              Arrastra los elementos para ordenarlos correctamente.
+            </p>
+            <OrdenamientoRenderer
+              elementos={(pregunta as any).elementos ?? []}
+              onChange={handleOrdenamiento}
+            />
+          </div>
+        )}
+
+        {/* Renderizado de Completar */}
+        {pregunta.tipo === "completar" && (
+          <div className="flex flex-col gap-3">
+            {(pregunta as any).instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {(pregunta as any).instruccion}
+              </p>
+            )}
+            <p className="text-xs text-sena-gray-dark/50">
+              Completa los espacios en blanco con la opción correcta.
+            </p>
+            <CompletarRenderer
+              segmentos={(pregunta as any).segmentos ?? []}
+              espacios={respuestaActual?.espacios ?? {}}
+              onChange={handleCompletar}
+            />
+          </div>
+        )}
+
+        {/* Renderizado de Clasificacion */}
+        {pregunta.tipo === "clasificacion" && (
+          <div className="flex flex-col gap-3">
+            {(pregunta as any).instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {(pregunta as any).instruccion}
+              </p>
+            )}
+            <p className="text-xs text-sena-gray-dark/50">
+              Asigna cada elemento a la categoría que corresponde.
+            </p>
+            <ClasificacionRenderer
+              categorias={(pregunta as any).categorias ?? []}
+              elementos={(pregunta as any).elementos ?? []}
+              clasificacion={respuestaActual?.clasificacion ?? {}}
+              onChange={handleClasificacion}
+            />
+          </div>
+        )}
+
+        {/* Renderizado de Hotspot */}
+        {pregunta.tipo === "hotspot" && (
+          <div className="flex flex-col gap-3">
+            {(pregunta as any).instruccion && (
+              <p className="text-sm text-sena-gray-dark/70 italic">
+                {(pregunta as any).instruccion}
+              </p>
+            )}
+            <p className="text-xs text-sena-gray-dark/50">
+              Haz clic en la zona correcta de la imagen.
+            </p>
+            <HotspotRenderer
+              imagen={(pregunta as any).imagen ?? ""}
+              imagenAlt={(pregunta as any).imagenAlt ?? ""}
+              click={respuestaActual?.hotspotClick ?? null}
+              onChange={handleHotspot}
+            />
           </div>
         )}
 

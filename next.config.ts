@@ -24,22 +24,7 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=()",
   },
-  // CSP: limita orígenes de carga de recursos
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      // Next.js/React requieren unsafe-inline y unsafe-eval (RSC, hot reload)
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
-      "font-src 'self' data:",
-      // Fetch/XHR solo al mismo origen
-      "connect-src 'self'",
-      // Bloquea embeber la app en iframes de terceros
-      "frame-ancestors 'none'",
-    ].join("; "),
-  },
+  // CSP gestionado por src/middleware.ts con nonces por request (M4)
 ];
 
 const nextConfig: NextConfig = {

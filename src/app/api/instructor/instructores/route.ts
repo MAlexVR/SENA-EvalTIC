@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireInstructor } from "@/lib/auth-utils";
+import { requireAdmin } from "@/lib/auth-utils";
 import bcrypt from "bcryptjs";
 
 const passwordSchema = z
@@ -20,11 +20,7 @@ const crearInstructorSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await requireInstructor();
-
-    if (!session.user.isAdmin) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
+    const session = await requireAdmin();
 
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
@@ -59,11 +55,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireInstructor();
-
-    if (!session.user.isAdmin) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
+    const session = await requireAdmin();
 
     const rawBody = await req.json();
     const parsed = crearInstructorSchema.safeParse(rawBody);

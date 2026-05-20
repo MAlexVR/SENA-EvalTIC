@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireInstructor } from "@/lib/auth-utils";
+import { requireAdmin } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_SENDER = "EvalTIC SENA <onboarding@resend.dev>";
 
 export async function GET() {
-  const session = await requireInstructor();
-  if (!session.user.isAdmin) {
-    return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-  }
+  await requireAdmin();
 
   const config = await prisma.appConfig.findUnique({
     where: { clave: "senderEmail" },
@@ -20,10 +17,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await requireInstructor();
-  if (!session.user.isAdmin) {
-    return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-  }
+  const session = await requireAdmin();
 
   const body = await req.json();
   const { senderEmail } = body as { senderEmail: string };

@@ -45,7 +45,6 @@ export async function GET(req: NextRequest) {
             config: true,
             fechaInicio: true,
             fechaFin: true,
-            instructor: { select: { email: true } },
           },
         },
       },
@@ -85,7 +84,6 @@ export async function GET(req: NextRequest) {
     if (!aprendiz) {
       return NextResponse.json({
         encontrado: false,
-        instructorEmail: ficha.evaluacion.instructor.email,
         error:
           "No estás registrado en esta ficha. Verifica el número de ficha y tu cédula con tu instructor.",
       });
@@ -112,17 +110,11 @@ export async function GET(req: NextRequest) {
 
     const cfg = ficha.evaluacion.config as {
       timeLimitMinutes?: number;
-      distribucionPreguntas?: {
-        seleccion_unica?: number;
-        seleccion_multiple?: number;
-        emparejamiento?: number;
-      };
+      distribucionPreguntas?: Record<string, number>;
     } | null;
 
     const totalPreguntas = cfg?.distribucionPreguntas
-      ? (cfg.distribucionPreguntas.seleccion_unica ?? 0) +
-        (cfg.distribucionPreguntas.seleccion_multiple ?? 0) +
-        (cfg.distribucionPreguntas.emparejamiento ?? 0)
+      ? Object.values(cfg.distribucionPreguntas).reduce((a, b) => a + b, 0)
       : null;
 
     return NextResponse.json({
@@ -131,7 +123,6 @@ export async function GET(req: NextRequest) {
       apellidos: aprendiz.apellidos,
       tipoDocumento: aprendiz.tipoDocumento,
       email: aprendiz.email,
-      instructorEmail: ficha.evaluacion.instructor.email,
       puedeIniciar,
       intentosUsados,
       intentosPermitidos,

@@ -1,6 +1,6 @@
 # SENA EvalTIC
 
-![SENA](https://img.shields.io/badge/SENA-CEET-39A900?style=flat-square) ![Version](https://img.shields.io/badge/version-1.3.0-blue?style=flat-square) ![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js) ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?style=flat-square&logo=typescript) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38BDF8?style=flat-square&logo=tailwindcss) ![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?style=flat-square&logo=prisma) ![PostgreSQL](https://img.shields.io/badge/Neon-Postgres-4169E1?style=flat-square&logo=postgresql) ![NextAuth](https://img.shields.io/badge/NextAuth-v4-FFCF00?style=flat-square&logo=next.js)
+![SENA](https://img.shields.io/badge/SENA-CEET-39A900?style=flat-square) ![Version](https://img.shields.io/badge/version-1.5.0-blue?style=flat-square) ![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js) ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?style=flat-square&logo=typescript) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38BDF8?style=flat-square&logo=tailwindcss) ![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?style=flat-square&logo=prisma) ![PostgreSQL](https://img.shields.io/badge/Neon-Postgres-4169E1?style=flat-square&logo=postgresql) ![NextAuth](https://img.shields.io/badge/NextAuth-v4-FFCF00?style=flat-square&logo=next.js)
 
 Sistema interactivo de evaluación técnica en línea para aprendices del **SENA - Centro de Electricidad, Electrónica y Telecomunicaciones (CEET)**. Permite a los instructores aplicar evaluaciones dinámicas con selección aleatoria de preguntas, control de intentos múltiples, temporizador, generación de informes PDF, notificación por correo electrónico y un **panel de administración completo** para gestionar evaluaciones, fichas de aprendices, resultados e importación masiva desde SOFIA Plus.
 
@@ -381,6 +381,134 @@ El banco se sube al crear o editar una evaluación. El archivo debe ser JSON con
 ```
 
 > No lleva `opciones` ni `respuestaCorrecta` — la respuesta correcta se deriva del orden de `pares`. La columna derecha se aleatoriza al presentar la evaluación. El puntaje es proporcional a los pares emparejados correctamente.
+
+### Tipos de preguntas disponibles
+
+| Tipo (`tipo`) | Nombre | Nivel Bloom | Calificación | Crédito parcial |
+|---|---|---|---|---|
+| `seleccion_unica` | Selección única | Recordar (1) | Todo o nada | No |
+| `seleccion_multiple` | Selección múltiple | Comprender (2) | Proporcional | Sí |
+| `emparejamiento` | Emparejamiento | Comprender (2) | Proporcional | Sí |
+| `verdadero_falso` | Verdadero / Falso | Recordar (1) | Todo o nada | No |
+| `numerica` | Numérica | Aplicar (3) | Todo o nada (con tolerancia) | No |
+| `ordenamiento` | Ordenamiento | Analizar (4) | Por posición correcta | Sí |
+| `completar` | Completar espacios | Comprender (2) | Por espacio correcto | Sí |
+| `clasificacion` | Clasificación | Analizar (4) | Por elemento correcto | Sí |
+| `hotspot` | Punto activo | Aplicar (3) | Todo o nada (distancia al punto ≤ radio) | No |
+
+#### `verdadero_falso` — afirmación verdadera o falsa
+
+```json
+{
+  "id": "vf1",
+  "tipo": "verdadero_falso",
+  "enunciado": "El sol es una estrella.",
+  "respuestaCorrecta": ["verdadero"],
+  "retroalimentacion": "El sol es la estrella más cercana a la Tierra."
+}
+```
+
+#### `numerica` — respuesta numérica con tolerancia
+
+```json
+{
+  "id": "num1",
+  "tipo": "numerica",
+  "enunciado": "¿Cuál es la velocidad de la luz en el vacío?",
+  "respuestaCorrecta": 299792458,
+  "tolerancia": 0,
+  "unidad": "m/s",
+  "retroalimentacion": "La velocidad de la luz en el vacío es exactamente 299,792,458 m/s."
+}
+```
+
+> `tolerancia: 0` exige coincidencia exacta. `tolerancia: 5` acepta cualquier valor entre `respuestaCorrecta - 5` y `respuestaCorrecta + 5`.
+
+#### `ordenamiento` — ordenar elementos en la secuencia correcta
+
+```json
+{
+  "id": "ord1",
+  "tipo": "ordenamiento",
+  "instruccion": "Ordena los pasos del método científico.",
+  "elementos": [
+    { "id": "e1", "texto": "Observación" },
+    { "id": "e2", "texto": "Hipótesis" },
+    { "id": "e3", "texto": "Experimentación" },
+    { "id": "e4", "texto": "Conclusión" }
+  ],
+  "respuestaCorrecta": ["e1", "e2", "e3", "e4"],
+  "retroalimentacion": "El método científico sigue este orden lógico."
+}
+```
+
+> Los elementos se presentan en orden aleatorio al aprendiz. El crédito es `posiciones_correctas / total`.
+
+#### `completar` — llenar espacios en blanco
+
+```json
+{
+  "id": "comp1",
+  "tipo": "completar",
+  "instruccion": "Completa la oración.",
+  "segmentos": [
+    { "tipo": "texto", "contenido": "El agua hierve a " },
+    { "tipo": "espacio", "id": "temp", "respuestaCorrecta": "100", "opciones": ["0", "100", "-273"] },
+    { "tipo": "texto", "contenido": " grados Celsius." }
+  ],
+  "retroalimentacion": "El punto de ebullición del agua a presión estándar es 100 °C."
+}
+```
+
+> Si `opciones` está vacío, el aprendiz escribe libremente. El crédito es `espacios_correctos / total_espacios`.
+
+#### `clasificacion` — asignar elementos a categorías
+
+```json
+{
+  "id": "clas1",
+  "tipo": "clasificacion",
+  "instruccion": "Clasifica cada organismo en su reino.",
+  "categorias": [
+    { "id": "c1", "etiqueta": "Reino Animal" },
+    { "id": "c2", "etiqueta": "Reino Vegetal" }
+  ],
+  "elementos": [
+    { "id": "e1", "texto": "León" },
+    { "id": "e2", "texto": "Roble" },
+    { "id": "e3", "texto": "Mariposa" }
+  ],
+  "respuestaCorrecta": { "c1": ["e1", "e3"], "c2": ["e2"] },
+  "retroalimentacion": "Los animales pertenecen al reino Animal, las plantas al reino Vegetal."
+}
+```
+
+> El crédito es `elementos_clasificados_correctamente / total_elementos`.
+
+#### `hotspot` — hacer clic en un punto de una imagen
+
+El aprendiz hace **un solo clic** sobre la imagen. El sistema verifica si el clic cae dentro del radio de tolerancia del punto correcto. La imagen se sube a Cloudinary desde el editor; la `zonaCorrecta` se configura visualmente haciendo clic sobre la preview.
+
+```json
+{
+  "id": "hs1",
+  "tipo": "hotspot",
+  "instruccion": "En el diagrama de topología, haz clic sobre el dispositivo que actúa como default gateway.",
+  "imagen": "https://res.cloudinary.com/{cloud_name}/image/upload/evaluaciones/topologia-red.jpg",
+  "imagenAlt": "Diagrama de red en estrella con router, switch y cuatro PCs",
+  "zonaCorrecta": { "cx": 50, "cy": 20, "radio": 12 },
+  "retroalimentacion": "El router es el default gateway porque conecta la LAN con redes externas."
+}
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `imagen` | URL Cloudinary (se sube desde el editor). Dejar `""` en la plantilla. |
+| `zonaCorrecta.cx` | Centro X del punto correcto, 0–100 (% del ancho de imagen) |
+| `zonaCorrecta.cy` | Centro Y del punto correcto, 0–100 (% del alto de imagen) |
+| `zonaCorrecta.radio` | Radio de tolerancia, 0–100 (% del ancho). Configurable por el instructor en el editor. |
+
+> **Calificación:** Todo o nada. Correcto si `√((click.x − cx)² + (click.y − cy)²) ≤ radio`. El aprendiz ve solo su pin; el radio de tolerancia no se muestra.
 
 #### Reglas del banco
 

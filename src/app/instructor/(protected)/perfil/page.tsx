@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Image,
   Loader2,
   Mail,
   User,
@@ -29,6 +30,9 @@ interface PerfilData {
   emailNotificaciones: boolean;
   resendApiKey: string | null;
   tieneApiKey: boolean;
+  cloudinaryCloudName: string | null;
+  cloudinaryApiKey: string | null;
+  tieneCloudinary: boolean;
 }
 
 export default function PerfilPage() {
@@ -41,6 +45,14 @@ export default function PerfilPage() {
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
 
+  // Cloudinary state
+  const [cloudinaryCloudName, setCloudinaryCloudName] = useState("");
+  const [cloudinaryApiKey, setCloudinaryApiKey] = useState("");
+  const [cloudinaryApiSecret, setCloudinaryApiSecret] = useState("");
+  const [showCloudinarySecret, setShowCloudinarySecret] = useState(false);
+  const [cloudinarySaving, setCloudinarySaving] = useState(false);
+  const [cloudinarySaveStatus, setCloudinarySaveStatus] = useState<"idle" | "success" | "error">("idle");
+
   useEffect(() => {
     fetch("/api/instructor/perfil")
       .then((r) => r.json())
@@ -48,6 +60,8 @@ export default function PerfilPage() {
         setPerfil(data);
         setEmailNotificaciones(data.emailNotificaciones);
         setApiKey(data.resendApiKey ?? "");
+        setCloudinaryCloudName(data.cloudinaryCloudName ?? "");
+        setCloudinaryApiKey(data.cloudinaryApiKey ?? "");
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -74,6 +88,33 @@ export default function PerfilPage() {
       setSaveStatus("error");
     }
     setSaving(false);
+  };
+
+  const handleCloudinarySave = async () => {
+    setCloudinarySaving(true);
+    setCloudinarySaveStatus("idle");
+
+    const res = await fetch("/api/instructor/perfil", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cloudinaryCloudName,
+        cloudinaryApiKey,
+        cloudinaryApiSecret,
+      }),
+    });
+
+    if (res.ok) {
+      const updated = await res.json();
+      setPerfil((prev) => (prev ? { ...prev, ...updated } : prev));
+      setCloudinaryCloudName(updated.cloudinaryCloudName ?? "");
+      setCloudinaryApiKey(updated.cloudinaryApiKey ?? "");
+      setCloudinaryApiSecret("");
+      setCloudinarySaveStatus("success");
+    } else {
+      setCloudinarySaveStatus("error");
+    }
+    setCloudinarySaving(false);
   };
 
   if (loading) {
@@ -219,6 +260,130 @@ export default function PerfilPage() {
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {saving ? "Guardando..." : "Guardar configuración"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Cloudinary integration */}
+      <Card className="shadow-sm border-sena-gray-dark/10">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sena-blue flex items-center gap-2 text-base">
+            <Image size={16} className="text-sena-green" />
+            Integración Cloudinary
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Configura tu cuenta de Cloudinary para subir imágenes en preguntas tipo punto activo
+            (hotspot).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Cloud Name */}
+          <div className="space-y-1.5">
+            <Label htmlFor="cloud-name" className="text-sm font-medium text-sena-blue">
+              Cloud Name
+            </Label>
+            <Input
+              id="cloud-name"
+              type="text"
+              value={cloudinaryCloudName}
+              onChange={(e) => setCloudinaryCloudName(e.target.value)}
+              placeholder="mi-cloud-name"
+              className="font-mono text-sm"
+            />
+          </div>
+
+          {/* API Key */}
+          <div className="space-y-1.5">
+            <Label htmlFor="cloudinary-api-key" className="text-sm font-medium text-sena-blue">
+              API Key
+            </Label>
+            <Input
+              id="cloudinary-api-key"
+              type="text"
+              value={cloudinaryApiKey}
+              onChange={(e) => setCloudinaryApiKey(e.target.value)}
+              placeholder="123456789012345"
+              className="font-mono text-sm"
+            />
+          </div>
+
+          {/* API Secret (masked) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="cloudinary-api-secret" className="text-sm font-medium text-sena-blue">
+              API Secret
+            </Label>
+            <div className="relative">
+              <Input
+                id="cloudinary-api-secret"
+                type={showCloudinarySecret ? "text" : "password"}
+                value={cloudinaryApiSecret}
+                onChange={(e) => setCloudinaryApiSecret(e.target.value)}
+                placeholder={perfil?.tieneCloudinary ? "••••••••••••••••" : "Tu API Secret"}
+                className="pr-10 font-mono text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCloudinarySecret((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sena-gray-dark/40 hover:text-sena-blue transition-colors"
+              >
+                {showCloudinarySecret ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <p className="text-[11px] text-sena-gray-dark/50">
+              Encuentra estas credenciales en{" "}
+              <a
+                href="https://cloudinary.com/console"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sena-blue underline underline-offset-2"
+              >
+                cloudinary.com/console
+              </a>
+              . El plan gratuito incluye 25 GB de almacenamiento y 25 créditos de transformación al
+              mes.
+            </p>
+          </div>
+
+          {/* Status badge */}
+          <div className="flex items-center gap-2">
+            {perfil?.tieneCloudinary ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-sena-green">
+                <CheckCircle2 size={13} />
+                Cloudinary configurado
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-sena-gray-dark/50">
+                <AlertCircle size={13} />
+                Sin configurar
+              </span>
+            )}
+          </div>
+
+          {/* Save status */}
+          {cloudinarySaveStatus === "success" && (
+            <Alert className="py-2.5 border-sena-green/30 bg-sena-green/5">
+              <CheckCircle2 className="h-4 w-4 text-sena-green" />
+              <AlertDescription className="text-xs text-sena-green font-medium">
+                Configuración de Cloudinary guardada correctamente.
+              </AlertDescription>
+            </Alert>
+          )}
+          {cloudinarySaveStatus === "error" && (
+            <Alert variant="destructive" className="py-2.5">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Error al guardar. Inténtalo de nuevo.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Button
+            onClick={handleCloudinarySave}
+            disabled={cloudinarySaving}
+            className="bg-sena-green hover:bg-sena-green-dark text-white font-bold gap-2"
+          >
+            {cloudinarySaving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {cloudinarySaving ? "Guardando..." : "Guardar configuración"}
           </Button>
         </CardContent>
       </Card>
