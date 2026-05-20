@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-// In-memory rate limiter: max 30 requests per minute per IP on public eval endpoints
-// Note: resets on cold start in serverless — use Redis (Upstash) for production-grade limiting
+// ── Rate limiter en memoria ────────────────────────────────────────────────
+// Nota: se resetea en cold starts — usar Upstash Redis para producción real
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(ip: string, maxRequests = 30, windowMs = 60_000): boolean {
@@ -18,10 +18,34 @@ function checkRateLimit(ip: string, maxRequests = 30, windowMs = 60_000): boolea
   return true;
 }
 
+// ── Generación de nonce (Web Crypto — compatible con Edge runtime) ──────────
+function generateNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+// ── CSP con nonce ─────────────────────────────────────────────────────────
+function buildCsp(nonce: string): string {
+  const scriptSrc =
+    process.env.NODE_ENV === "production"
+      ? `script-src 'self' 'nonce-${nonce}'`
+      : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval'`; // Turbopack hot reload
+
+  return [
+    "default-src 'self'",
+    scriptSrc,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://res.cloudinary.com",
+    "font-src 'self' data:",
+    "connect-src 'self' https://api.cloudinary.com",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Rate limit public evaluation endpoints
+  // ── Rate limit en endpoints públicos de evaluación ──────────────────────
   if (pathname.startsWith("/api/evaluacion/")) {
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -35,13 +59,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect instructor panel routes
+  // ── Proteger panel del instructor ───────────────────────────────────────
   if (pathname.startsWith("/instructor/") && !pathname.startsWith("/instructor/login")) {
     const token = await getToken({
       req: request,
       secret: process.env.NEXTAUTH_SECRET,
     });
-
     if (!token) {
       const signInUrl = new URL("/instructor/login", request.url);
       signInUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
@@ -49,12 +72,27 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  // ── CSP con nonce para todas las respuestas HTML ────────────────────────
+  const nonce = generateNonce();
+  const csp = buildCsp(nonce);
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("content-security-policy", csp);
+  return response;
 }
 
 export const config = {
   matcher: [
-    "/instructor/:path*",
-    "/api/evaluacion/:path*",
+    // Aplica a todas las rutas excepto assets estáticos y prefetch de Next.js
+    {
+      source: "/((?!_next/static|_next/image|favicon.ico).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
   ],
 };

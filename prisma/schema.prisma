@@ -112,3 +112,25 @@ model Resultado {
 
   @@unique([cedula, evaluacionId, intento])
 }
+
+// A5 — Registro de inicio de sesión para validación server-side del tiempo
+model SesionEvaluacion {
+  id           String   @id @default(cuid())
+  cedula       String
+  evaluacionId String
+  fichaId      String
+  iniciadoEn   DateTime @default(now())
+  expiradoEn   DateTime
+
+  @@unique([cedula, evaluacionId, fichaId])
+}
+
+// M3 — Incidencias antiplagio registradas en tiempo real por el servidor
+model IncidenciaAntiplagio {
+  id           String   @id @default(cuid())
+  cedula       String
+  evaluacionId String
+  fichaId      String
+  evento       String
+  registradoEn DateTime @default(now())
+}

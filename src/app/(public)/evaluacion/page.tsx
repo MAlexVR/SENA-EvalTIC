@@ -48,6 +48,8 @@ export default function EvaluacionPage() {
     tiempoRestante,
     tiempoTranscurrido,
     umbralAntiplagio,
+    fichaId,
+    evaluacionId,
   } = useEvaluacionStore();
 
   const umbralMedio = umbralAntiplagio?.medio ?? 2;
@@ -125,6 +127,22 @@ export default function EvaluacionPage() {
       isHiddenRef.current = true;
       setTabBlurred(true);
       setTabSwitches((n) => n + 1);
+
+      // M3 — Reportar incidencia al servidor (fire-and-forget)
+      const cedula = datosAprendiz?.numeroDocumento;
+      if (cedula && evaluacionId && fichaId) {
+        fetch("/api/evaluacion/heartbeat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cedula,
+            evaluacionId,
+            fichaId,
+            evento: "blur",
+            clientTimestamp: Date.now(),
+          }),
+        }).catch(() => { /* ignorar errores de red */ });
+      }
     };
     const show = () => {
       isHiddenRef.current = false;

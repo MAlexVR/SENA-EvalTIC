@@ -100,9 +100,31 @@ export async function POST(request: NextRequest) {
         (evaluacion.config as any).passingScorePercentage ??
         APP_CONFIG.passingScorePercentage;
 
-      // Calcular anulada server-side (no confiar en el cliente)
+      // M3 — Contar incidencias desde la BD (server-side, no del cliente)
+      const incidenciasServidor = fichaId
+        ? await prisma.incidenciaAntiplagio.count({
+            where: { cedula, evaluacionId, fichaId },
+          })
+        : (incidenciasAntiplagio ?? 0); // fallback a valor del cliente en prueba sin fichaId
+
       const umbralAltoConfig = (evaluacion.config as any)?.umbralAntiplagio?.alto ?? 3;
-      const anuladaComputada = (incidenciasAntiplagio ?? 0) >= umbralAltoConfig;
+      const anuladaComputada = incidenciasServidor >= umbralAltoConfig;
+
+      // A5 — Calcular tiempo real desde la BD (no del cliente)
+      const sesion = fichaId
+        ? await prisma.sesionEvaluacion.findUnique({
+            where: {
+              cedula_evaluacionId_fichaId: { cedula, evaluacionId, fichaId },
+            },
+          })
+        : null;
+
+      const tiempoUsadoFinal = sesion
+        ? Math.min(
+            Math.round((Date.now() - sesion.iniciadoEn.getTime()) / 1000),
+            18000, // cap en 5h para evitar valores absurdos por bugs de reloj
+          )
+        : (tiempoUsado ?? 0);
 
       // 2. Filtrar solo las preguntas que fueron respondidas y normalizar campos
       const idsRespondidos = Object.keys(respuestasUsuario);
@@ -153,6 +175,7 @@ export async function POST(request: NextRequest) {
           preguntasCompletas: preguntasEvaluadas.map(sanitizarResultado),
           esPrueba: true,
           anulada: anuladaComputada,
+          incidenciasAntiplagio: incidenciasServidor,
         });
       }
 
@@ -201,11 +224,11 @@ export async function POST(request: NextRequest) {
             aprobado: resultado.aprobado,
             preguntasCorrectas: resultado.preguntasCorrectas,
             totalPreguntas: resultado.totalPreguntas,
-            tiempoUsado: tiempoUsado ?? 0,
+            tiempoUsado: tiempoUsadoFinal,
             respuestas: respuestasUsuario as Prisma.InputJsonValue,
             intento,
             esPrueba: false,
-            incidenciasAntiplagio: incidenciasAntiplagio ?? 0,
+            incidenciasAntiplagio: incidenciasServidor,
             anulada: anuladaComputada,
             evaluacionId,
             fichaId,
@@ -253,10 +276,10 @@ export async function POST(request: NextRequest) {
             apellidos: apellidos ?? "",
             email: email ?? "",
             emailAprendiz,
-            tiempoUsado: tiempoUsado ?? 0,
+            tiempoUsado: tiempoUsadoFinal,
             intento,
             maxIntentos: maxIntentosEval,
-            incidenciasAntiplagio: incidenciasAntiplagio ?? 0,
+            incidenciasAntiplagio: incidenciasServidor,
             resultado: {
               puntajeTotal: resultado.puntajeTotal,
               preguntasCorrectas: resultado.preguntasCorrectas,
@@ -274,6 +297,7 @@ export async function POST(request: NextRequest) {
         resultado,
         preguntasCompletas: preguntasEvaluadas.map(sanitizarResultado),
         anulada: anuladaComputada,
+        incidenciasAntiplagio: incidenciasServidor,
       });
     }
 

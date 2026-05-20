@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y el v
 
 ---
 
+## [1.5.0] - 2026-05-20
+
+### Added
+- (antiplagio) Endpoint `POST /api/evaluacion/heartbeat` — registra cada evento de cambio de foco o visibilidad en BD (server-side) sin depender del contador del cliente
+- (antiplagio) Modelo `IncidenciaAntiplagio` en Prisma: almacena `cedula`, `evaluacionId`, `fichaId`, `evento` y `registradoEn` por servidor
+- (seguridad) CSP con nonces por petición (M4): middleware genera un nonce criptográfico aleatorio via Web Crypto API por cada request; elimina `unsafe-inline` de scripts en producción
+- (seguridad) Validación server-side del tiempo de evaluación (A5): modelo `SesionEvaluacion` registra `iniciadoEn` en BD al iniciar; `finalizar` calcula `tiempoUsadoFinal` desde BD, ignorando el valor enviado por el cliente
+
+### Fixed
+- (aprendiz) Formulario de ingreso mostraba todos los campos del modo legacy (nombres, apellidos, documento…) cuando la BD estaba vacía pero `USE_DB_BACKEND=true`; ahora muestra solo ficha + cédula y un aviso de "sin evaluaciones activas"
+
+### Changed
+- (antiplagio) `finalizar` cuenta incidencias desde BD (`prisma.incidenciaAntiplagio.count`) en lugar de confiar en el entero enviado por el cliente
+- (seguridad) CSP retirado de `next.config.ts` y delegado exclusivamente a `src/middleware.ts` con nonces dinámicos
+
+---
+
 ## [1.4.0] - 2026-05-17
 
 ### Added

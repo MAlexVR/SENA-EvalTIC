@@ -130,6 +130,23 @@ export async function POST(request: Request) {
         config.aleatorizarOpciones,
       );
 
+      // A5 — Registrar inicio de sesión en BD para validación server-side del tiempo
+      const margenSegundos = 30;
+      const expiradoEn = new Date(
+        Date.now() + (config.timeLimitMinutes * 60 + margenSegundos) * 1000,
+      );
+      await prisma.sesionEvaluacion.upsert({
+        where: {
+          cedula_evaluacionId_fichaId: {
+            cedula,
+            evaluacionId: fichaDB.evaluacionId,
+            fichaId: fichaDB.id,
+          },
+        },
+        create: { cedula, evaluacionId: fichaDB.evaluacionId, fichaId: fichaDB.id, expiradoEn },
+        update: { iniciadoEn: new Date(), expiradoEn },
+      });
+
       return NextResponse.json({
         yaPresento: false,
         preguntas: preguntasCliente,
