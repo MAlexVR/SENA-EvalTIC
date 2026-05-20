@@ -100,17 +100,8 @@ export async function POST(request: NextRequest) {
         (evaluacion.config as any).passingScorePercentage ??
         APP_CONFIG.passingScorePercentage;
 
-      // M3 — Contar incidencias desde la BD (server-side, no del cliente)
-      const incidenciasServidor = fichaId
-        ? await prisma.incidenciaAntiplagio.count({
-            where: { cedula, evaluacionId, fichaId },
-          })
-        : (incidenciasAntiplagio ?? 0); // fallback a valor del cliente en prueba sin fichaId
-
-      const umbralAltoConfig = (evaluacion.config as any)?.umbralAntiplagio?.alto ?? 3;
-      const anuladaComputada = incidenciasServidor >= umbralAltoConfig;
-
       // A5 — Calcular tiempo real desde la BD (no del cliente)
+      // Se obtiene primero para reutilizar sesion.iniciadoEn en el filtro M3
       const sesion = fichaId
         ? await prisma.sesionEvaluacion.findUnique({
             where: {
@@ -126,6 +117,22 @@ export async function POST(request: NextRequest) {
           )
         : (tiempoUsado ?? 0);
 
+      // M3 — Contar incidencias del intento actual (filtradas por inicio de sesión
+      // para evitar que incidencias de intentos anteriores contaminen el nuevo intento)
+      const incidenciasServidor = fichaId
+        ? await prisma.incidenciaAntiplagio.count({
+            where: {
+              cedula,
+              evaluacionId,
+              fichaId,
+              ...(sesion ? { registradoEn: { gte: sesion.iniciadoEn } } : {}),
+            },
+          })
+        : (incidenciasAntiplagio ?? 0); // fallback a valor del cliente en prueba sin fichaId
+
+      const umbralAltoConfig = (evaluacion.config as any)?.umbralAntiplagio?.alto ?? 3;
+      const anuladaComputada = incidenciasServidor >= umbralAltoConfig;
+
       // 2. Filtrar solo las preguntas que fueron respondidas y normalizar campos
       const idsRespondidos = Object.keys(respuestasUsuario);
       const preguntasEvaluadas = bancoCompleto
@@ -136,6 +143,13 @@ export async function POST(request: NextRequest) {
           enunciado: q.enunciado ?? q.texto ?? "",
         }));
 
+      // Total de preguntas que se presentaron al aprendiz (según distribución configurada).
+      // Usado como denominador del puntaje para que no responder = 0, no = ignorado.
+      const distribucion = (evaluacion.config as any).distribucionPreguntas as Record<string, number> | undefined;
+      const totalEsperado = distribucion
+        ? Object.values(distribucion).reduce((a, b) => a + b, 0)
+        : preguntasEvaluadas.length;
+
       // 2b. Si la evaluación fue anulada por antiplagio, forzar puntaje 0
       const resultado = anuladaComputada
         ? {
@@ -143,10 +157,10 @@ export async function POST(request: NextRequest) {
             aprobado: false,
             preguntasCorrectas: 0,
             preguntasParciales: 0,
-            totalPreguntas: preguntasEvaluadas.length,
+            totalPreguntas: totalEsperado,
             puntajePorTema: {},
           }
-        : calcularPuntaje(preguntasEvaluadas, respuestasUsuario as any, passingScore);
+        : calcularPuntaje(preguntasEvaluadas, respuestasUsuario as any, passingScore, totalEsperado);
 
       // 3. Modo prueba del instructor: calcular pero NO guardar
       if (esPrueba === true) {

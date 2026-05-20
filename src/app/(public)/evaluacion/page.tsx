@@ -225,8 +225,11 @@ export default function EvaluacionPage() {
   const handleFinalizar = async () => {
     if (anulandoRef.current) return;
     setFinalizando(true);
-    await finalizarEvaluacion(tabSwitches);
-    setFinalizando(false);
+    try {
+      await finalizarEvaluacion(tabSwitches);
+    } finally {
+      setFinalizando(false);
+    }
   };
 
   const progress =

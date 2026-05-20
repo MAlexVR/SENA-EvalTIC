@@ -173,10 +173,13 @@ export const useEvaluacionStore = create<EvaluacionState>((set, get) => ({
     if (!state.testMode && !state.datosAprendiz) return;
 
     const ai = state.aprendizInfo;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
     try {
       const resp = await fetch("/api/evaluacion/finalizar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           cedula: state.datosAprendiz?.numeroDocumento ?? "PRUEBA",
           tipoDocumento: state.datosAprendiz?.tipoDocumento ?? ai?.tipoDocumento ?? "CC",
@@ -194,6 +197,7 @@ export const useEvaluacionStore = create<EvaluacionState>((set, get) => ({
           anulada: anulada ?? false,
         }),
       });
+      clearTimeout(timeoutId);
 
       const data = await resp.json();
 
@@ -211,8 +215,13 @@ export const useEvaluacionStore = create<EvaluacionState>((set, get) => ({
         anulada: data.anulada ?? false,
       });
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error(error);
-      alert("Error de red al enviar la evaluación.");
+      if (error instanceof Error && error.name === "AbortError") {
+        alert("La solicitud tardó demasiado. Verifica tu conexión e intenta de nuevo.");
+      } else {
+        alert("Error de red al enviar la evaluación. Verifica tu conexión e intenta de nuevo.");
+      }
     }
   },
 

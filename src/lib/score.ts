@@ -132,6 +132,7 @@ export function calcularPuntaje(
   preguntas: any[],
   respuestasUsuario: Record<string, RespuestaAprendiz>,
   scoreParaAprobar: number,
+  totalEsperado?: number,
 ): EvaluacionResultado {
   let sumaCreditos = 0;
   let preguntasCompletas = 0;
@@ -157,7 +158,9 @@ export function calcularPuntaje(
     else if (credito > 0) preguntasParciales += 1;
   });
 
-  const total = preguntas.length;
+  // Usar totalEsperado como denominador para que preguntas no respondidas
+  // cuenten como 0, en vez de ignorarse y elevar artificialmente el puntaje.
+  const total = totalEsperado ?? preguntas.length;
   const puntajeBase100 = total > 0 ? (sumaCreditos / total) * 100 : 0;
   const aprobado = puntajeBase100 >= scoreParaAprobar;
 
