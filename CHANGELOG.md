@@ -5,6 +5,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y el v
 
 ---
 
+## [1.5.3] - 2026-05-22
+
+### Fixed
+- (dashboard) "Total Presentaciones" mostraba intentos totales en vez de aprendices únicos — ahora cuenta cédulas distintas con `esPrueba: false`, evitando que múltiples intentos o el modo prueba del instructor inflen el número
+- (dashboard) Tasa de aprobación global y por evaluación ahora se calcula sobre aprendices únicos (aprobados / presentadores), no sobre intentos totales
+- (dashboard) Resultados del modo prueba del instructor ya no se incluyen en ninguna métrica del dashboard
+- (dashboard) Descripción del stat card corregida a "Aprendices que han presentado vs. inscritos"
+
+---
+
 ## [1.5.2] - 2026-05-22
 
 ### Fixed

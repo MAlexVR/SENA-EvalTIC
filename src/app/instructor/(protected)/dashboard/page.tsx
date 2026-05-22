@@ -31,7 +31,7 @@ export default async function DashboardPage() {
         id: true,
         nombre: true,
         activa: true,
-        resultados: { select: { puntaje: true, aprobado: true } },
+        resultados: { where: { esPrueba: false }, select: { puntaje: true, aprobado: true, cedula: true } },
         fichas: { select: { _count: { select: { aprendices: true } } } },
       },
       orderBy: { nombre: "asc" },
@@ -47,24 +47,32 @@ export default async function DashboardPage() {
     (sum, ev) => sum + ev.fichas.reduce((s, f) => s + f._count.aprendices, 0),
     0,
   );
-  const totalResultados = evaluaciones.reduce((sum, ev) => sum + ev.resultados.length, 0);
-  const totalAprobados  = evaluaciones.reduce((sum, ev) => sum + ev.resultados.filter((r) => r.aprobado).length, 0);
-  const tasaAprobacion  = totalResultados > 0 ? Math.round((totalAprobados / totalResultados) * 100) : 0;
-  const promedioGlobal  = totalResultados > 0
-    ? Math.round(evaluaciones.reduce((sum, ev) => sum + ev.resultados.reduce((s, r) => s + r.puntaje, 0), 0) / totalResultados)
+  // Presentadores = cédulas únicas con al menos un intento real (excluye modo prueba)
+  const totalPresentadores = new Set(
+    evaluaciones.flatMap((ev) => ev.resultados.map((r) => r.cedula)),
+  ).size;
+  // Aprobados = cédulas únicas con al menos un intento aprobado
+  const totalAprobados = new Set(
+    evaluaciones.flatMap((ev) => ev.resultados.filter((r) => r.aprobado).map((r) => r.cedula)),
+  ).size;
+  const totalIntentos  = evaluaciones.reduce((sum, ev) => sum + ev.resultados.length, 0);
+  const tasaAprobacion = totalPresentadores > 0 ? Math.round((totalAprobados / totalPresentadores) * 100) : 0;
+  const promedioGlobal = totalIntentos > 0
+    ? Math.round(evaluaciones.reduce((sum, ev) => sum + ev.resultados.reduce((s, r) => s + r.puntaje, 0), 0) / totalIntentos)
     : 0;
   const evaluacionesActivas = evaluaciones.filter((e) => e.activa).length;
 
   // Métricas por evaluación
   const statsEvaluaciones = evaluaciones.map((ev) => {
-    const presentaciones = ev.resultados.length;
-    const aprendices     = ev.fichas.reduce((s, f) => s + f._count.aprendices, 0);
-    const aprobados      = ev.resultados.filter((r) => r.aprobado).length;
-    const tasa           = presentaciones > 0 ? Math.round((aprobados / presentaciones) * 100) : 0;
-    const promedio       = presentaciones > 0
-      ? Math.round(ev.resultados.reduce((s, r) => s + r.puntaje, 0) / presentaciones)
+    const presentadores = new Set(ev.resultados.map((r) => r.cedula)).size;
+    const aprendices    = ev.fichas.reduce((s, f) => s + f._count.aprendices, 0);
+    const aprobados     = new Set(ev.resultados.filter((r) => r.aprobado).map((r) => r.cedula)).size;
+    const intentos      = ev.resultados.length;
+    const tasa          = presentadores > 0 ? Math.round((aprobados / presentadores) * 100) : 0;
+    const promedio      = intentos > 0
+      ? Math.round(ev.resultados.reduce((s, r) => s + r.puntaje, 0) / intentos)
       : 0;
-    return { id: ev.id, nombre: ev.nombre, activa: ev.activa, presentaciones, aprendices, tasa, promedio };
+    return { id: ev.id, nombre: ev.nombre, activa: ev.activa, presentadores, aprendices, tasa, promedio };
   });
 
   const emailSinConfigurar = !instructorConfig?.emailNotificaciones || !instructorConfig?.resendApiKey;
@@ -102,16 +110,16 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <InstructorStatCard
           title="Total Presentaciones"
-          value={`${totalResultados} / ${totalAprendices}`}
+          value={`${totalPresentadores} / ${totalAprendices}`}
           icon={BarChart2}
-          description="Presentaciones sobre total de aprendices"
+          description="Aprendices que han presentado vs. inscritos"
           color="blue"
         />
         <InstructorStatCard
           title="Tasa de Aprobación"
           value={`${tasaAprobacion}%`}
           icon={TrendingUp}
-          description={`${totalAprobados} de ${totalResultados} aprobados`}
+          description={`${totalAprobados} de ${totalPresentadores} aprendices aprobaron`}
           color={tasaAprobacion >= 65 ? "green" : tasaAprobacion >= 40 ? "amber" : "red"}
         />
         <InstructorStatCard
@@ -144,7 +152,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {statsEvaluaciones.map((ev) => {
-              const sinDatos  = ev.presentaciones === 0;
+              const sinDatos  = ev.presentadores === 0;
               const colorTasa = colorPorcentaje(ev.tasa, sinDatos);
               const colorProm = colorPorcentaje(ev.promedio, sinDatos);
 
@@ -171,15 +179,15 @@ export default async function DashboardPage() {
 
                   {/* Métricas */}
                   <div className="grid grid-cols-3 gap-2 pt-1 border-t border-sena-gray-dark/5">
-                    {/* Presentaciones */}
+                    {/* Presentadores */}
                     <div className="text-center">
                       <p className="text-lg font-black text-sena-blue leading-none">
-                        {ev.presentaciones}
+                        {ev.presentadores}
                         <span className="text-xs font-normal text-sena-gray-dark/40">
                           /{ev.aprendices}
                         </span>
                       </p>
-                      <p className="text-[10px] text-sena-gray-dark/50 mt-1">Presentaciones</p>
+                      <p className="text-[10px] text-sena-gray-dark/50 mt-1">Presentaron</p>
                     </div>
 
                     {/* Tasa aprobación */}
