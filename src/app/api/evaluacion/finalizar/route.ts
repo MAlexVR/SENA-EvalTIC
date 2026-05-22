@@ -17,8 +17,14 @@ const COMPLETED_EVALUATIONS_FILE = path.join(
 
 function sanitizarResultado(q: any): any {
   const r = sanitizarParaCliente(q, q.tipo);
-  // Re-agregar retroalimentacion para la vista de resultado
+  // Re-add fields needed for post-exam review (exam is complete — safe to expose)
   if (q.retroalimentacion) r.retroalimentacion = q.retroalimentacion;
+  if (q.respuestaCorrecta !== undefined) r.respuestaCorrecta = q.respuestaCorrecta;
+  if (q.tolerancia !== undefined) r.tolerancia = q.tolerancia;
+  // emparejamiento: sanitizarParaCliente replaced pares with izquierdas/derechas; restore pares
+  if (q.pares !== undefined) r.pares = q.pares;
+  // completar: restore per-segment correct answers
+  if (q.tipo === "completar" && Array.isArray(q.segmentos)) r.segmentos = q.segmentos;
   return r;
 }
 

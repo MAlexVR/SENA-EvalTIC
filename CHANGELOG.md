@@ -5,6 +5,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y el v
 
 ---
 
+## [1.5.2] - 2026-05-22
+
+### Fixed
+- (resultados) Pantalla de "Calculando resultados..." quedaba infinita al finalizar — la página ahora usa el resultado calculado server-side almacenado en el store, en vez de recalcular sobre preguntas sanitizadas (sin `respuestaCorrecta`)
+- (pdf) Informe PDF mostraba puntaje 0 al descargar desde la pantalla de resultados — `displayResult` ahora proviene del store (valor server-side), no de un recálculo local incorrecto
+- (pdf) Informe PDF descargado por aprendices con intentos agotados mostraba puntaje 0 — `FormularioRegistro` ahora construye el resultado desde los campos persistidos en BD (`puntaje`, `aprobado`, `preguntasCorrectas`) en vez de recalcular con preguntas sanitizadas
+- (resultados) Detalle de respuestas mostraba todas las preguntas como "sin responder" — `finalizar` ahora restaura `respuestaCorrecta`, `tolerancia`, `pares` y `segmentos` en las preguntas del resultado para permitir la revisión post-evaluación
+
+---
+
 ## [1.5.1] - 2026-05-20
 
 ### Fixed

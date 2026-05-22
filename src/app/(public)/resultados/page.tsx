@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEvaluacionStore } from "@/stores/evaluacion-store";
 import { APP_CONFIG } from "@/lib/config";
-import { calcularPuntaje, calcularCreditoPregunta } from "@/lib/score";
+import { calcularCreditoPregunta } from "@/lib/score";
 import {
   Card,
   CardContent,
@@ -55,6 +55,7 @@ export default function ResultadosPage() {
     incidenciasAntiplagio,
     umbralAntiplagio,
     anulada,
+    resultado: storeResultado,
   } = useEvaluacionStore();
 
   const umbralMedio = umbralAntiplagio?.medio ?? 2;
@@ -67,24 +68,8 @@ export default function ResultadosPage() {
     }
   }, [estado, router]);
 
-  const result = useMemo(() => {
-    if (
-      !mounted ||
-      estado !== "resultados" ||
-      !preguntasSeleccionadas.length ||
-      !(
-        preguntasSeleccionadas[0].hasOwnProperty("respuestaCorrecta") ||
-        preguntasSeleccionadas[0].hasOwnProperty("pares")
-      )
-    ) {
-      return null;
-    }
-    return calcularPuntaje(
-      preguntasSeleccionadas,
-      respuestas,
-      APP_CONFIG.passingScorePercentage,
-    );
-  }, [mounted, estado, preguntasSeleccionadas, respuestas]);
+  // Use the server-computed result stored by finalizarEvaluacion — authoritative denominator
+  const result = mounted && estado === "resultados" ? storeResultado : null;
 
   // El correo al instructor se envía automáticamente server-side en finalizar/route.ts
 

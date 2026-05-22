@@ -213,6 +213,7 @@ export const useEvaluacionStore = create<EvaluacionState>((set, get) => ({
           data.preguntasCompletas || state.preguntasSeleccionadas,
         incidenciasAntiplagio: incidenciasAntiplagio ?? 0,
         anulada: data.anulada ?? false,
+        resultado: data.resultado ?? null,
       });
     } catch (error) {
       clearTimeout(timeoutId);

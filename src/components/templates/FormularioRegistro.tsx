@@ -23,7 +23,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useEvaluacionStore } from "@/stores/evaluacion-store";
 import { APP_CONFIG } from "@/lib/config";
-import { calcularPuntaje } from "@/lib/score";
+import type { EvaluacionResultado } from "@/lib/score";
 import { generatePDF, savePdf } from "@/lib/pdf-generator";
 import {
   AlertCircle,
@@ -193,11 +193,21 @@ export function FormularioRegistro({ fichas = [] }: FormularioRegistroProps) {
         `/api/evaluacion/pdf-resultado/${aprendiz.ultimoResultadoId}?cedula=${encodeURIComponent(cedula.trim())}`,
       );
       if (!res.ok) return;
-      const { resultado, preguntas, passingScore } = await res.json();
+      const { resultado, preguntas } = await res.json();
 
+      // Build result from DB-stored values — questions are sanitized (no respuestaCorrecta)
+      // so recalculating would yield 0. Use the authoritative persisted score.
+      const evaluacionResultado: EvaluacionResultado = {
+        puntajeTotal: resultado.puntaje,
+        aprobado: resultado.aprobado,
+        preguntasCorrectas: resultado.preguntasCorrectas,
+        preguntasIncorrectas: resultado.totalPreguntas - resultado.preguntasCorrectas,
+        preguntasParciales: 0,
+        totalPreguntas: resultado.totalPreguntas,
+        puntajePorTema: {},
+      };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const respuestas = resultado.respuestas as Record<string, any>;
-      const evaluacionResultado = calcularPuntaje(preguntas, respuestas, passingScore);
 
       const bytes = await generatePDF(
         {
