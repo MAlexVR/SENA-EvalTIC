@@ -461,6 +461,8 @@ El banco se sube al crear o editar una evaluación. El archivo debe ser JSON con
 ```
 
 > Si `opciones` está vacío, el aprendiz escribe libremente. El crédito es `espacios_correctos / total_espacios`.
+>
+> Para reducir la rigidez de la comparación exacta, cada espacio puede incluir `respuestasAlternativas`: un array de sinónimos o variantes válidas que el sistema aceptará como correctas (ignora mayúsculas, tildes y espacios al inicio/final). Ejemplo: `"respuestaCorrecta": "confiable"` con `"respuestasAlternativas": ["segura", "fiable", "garantizada"]`. Estas alternativas nunca se envían al cliente; se usan solo en la calificación server-side.
 
 #### `clasificacion` — asignar elementos a categorías
 

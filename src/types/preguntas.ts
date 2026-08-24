@@ -53,6 +53,7 @@ export interface SegmentoEspacio {
   id: string;
   opciones?: string[];
   respuestaCorrecta: string;
+  respuestasAlternativas?: string[];
 }
 
 export interface PreguntaCompletar {

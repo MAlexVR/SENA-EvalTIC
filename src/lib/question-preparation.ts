@@ -53,6 +53,7 @@ export function sanitizarParaCliente(pregunta: any, tipo: TipoPregunta): any {
           if (s.tipo === "espacio") {
             const seg = { ...s };
             delete seg.respuestaCorrecta;
+            delete seg.respuestasAlternativas;
             return seg;
           }
           return s;

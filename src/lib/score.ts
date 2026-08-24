@@ -85,8 +85,13 @@ export function calcularCreditoPregunta(
     let correctos = 0;
     for (const espacio of espacios) {
       const studentAnswer = (respuestaEspacios[espacio.id] ?? "").trim().toLowerCase();
+      if (studentAnswer.length === 0) continue;
       const correctAnswer = (espacio.respuestaCorrecta ?? "").trim().toLowerCase();
-      if (studentAnswer === correctAnswer) correctos++;
+      const alternativas: string[] = Array.isArray(espacio.respuestasAlternativas)
+        ? espacio.respuestasAlternativas
+        : [];
+      const respuestasValidas = [correctAnswer, ...alternativas.map((a: string) => a.trim().toLowerCase())];
+      if (respuestasValidas.includes(studentAnswer)) correctos++;
     }
     return correctos / espacios.length;
   }
