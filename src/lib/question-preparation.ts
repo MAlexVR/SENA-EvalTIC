@@ -29,6 +29,9 @@ export function prepareQuestionsForClient(
     if (!pregunta.enunciado && pregunta.texto) {
       pregunta.enunciado = pregunta.texto;
     }
+    if (!pregunta.enunciado && pregunta.instruccion) {
+      pregunta.enunciado = pregunta.instruccion;
+    }
     pregunta.id = String(pregunta.id);
     if (aleatorizarOpciones && pregunta.opciones) {
       pregunta.opciones = shuffleArray([...pregunta.opciones]);
