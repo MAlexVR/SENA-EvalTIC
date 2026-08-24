@@ -256,21 +256,59 @@ export default function EvaluacionPage() {
   const isCurrentQuestionAnswered = (() => {
     if (!preguntaActual || !respuestaActual) return false;
 
-    if (
-      preguntaActual.tipo === "seleccion_unica" ||
-      preguntaActual.tipo === "seleccion_multiple"
-    ) {
-      return (
-        respuestaActual.respuestaIds && respuestaActual.respuestaIds.length > 0
-      );
-    } else if (preguntaActual.tipo === "emparejamiento") {
-      const numOfPairs = preguntaActual.izquierdas?.length || 0;
-      const matchedPairs = Object.keys(
-        respuestaActual.emparejamientos || {},
-      ).filter((key) => respuestaActual.emparejamientos![key] !== "").length;
-      return numOfPairs > 0 && matchedPairs === numOfPairs;
+    switch (preguntaActual.tipo) {
+      case "seleccion_unica":
+      case "seleccion_multiple":
+      case "verdadero_falso":
+        return (
+          respuestaActual.respuestaIds && respuestaActual.respuestaIds.length > 0
+        );
+      case "emparejamiento": {
+        const numOfPairs = preguntaActual.izquierdas?.length || 0;
+        const matchedPairs = Object.keys(
+          respuestaActual.emparejamientos || {},
+        ).filter((key) => respuestaActual.emparejamientos![key] !== "").length;
+        return numOfPairs > 0 && matchedPairs === numOfPairs;
+      }
+      case "numerica":
+        return (
+          respuestaActual.valorNumerico !== undefined &&
+          respuestaActual.valorNumerico !== null
+        );
+      case "ordenamiento": {
+        const elementos = preguntaActual.elementos || [];
+        return (
+          Array.isArray(respuestaActual.ordenamiento) &&
+          respuestaActual.ordenamiento.length === elementos.length
+        );
+      }
+      case "completar": {
+        const espacios = (preguntaActual.segmentos || []).filter(
+          (s: any) => s.tipo === "espacio",
+        );
+        if (espacios.length === 0) return false;
+        return espacios.every(
+          (s: any) =>
+            respuestaActual.espacios?.[s.id] !== undefined &&
+            respuestaActual.espacios?.[s.id] !== "",
+        );
+      }
+      case "clasificacion": {
+        const elementos = preguntaActual.elementos || [];
+        if (elementos.length === 0) return false;
+        const asignados = Object.values(
+          respuestaActual.clasificacion || {},
+        ).flat();
+        return asignados.length === elementos.length;
+      }
+      case "hotspot":
+        return (
+          respuestaActual.hotspotClick !== null &&
+          respuestaActual.hotspotClick !== undefined
+        );
+      default:
+        return false;
     }
-    return false;
   })();
 
   return (
