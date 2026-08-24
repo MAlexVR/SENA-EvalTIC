@@ -693,3 +693,70 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 > Las API keys de Resend **no son variables de entorno globales** — cada instructor las configura desde su perfil (`/instructor/perfil`). El `ENCRYPTION_KEY` solo cifra esas keys antes de guardarlas en la BD.
+
+---
+
+## Preguntas frecuentes sobre base de datos y despliegue
+
+### ¿Se borra la base de datos al hacer `git push`?
+
+**No.** La base de datos vive en **Neon Postgres**, no en el repositorio. Hacer push solo sube código fuente.
+
+La BD solo se modifica cuando:
+- Se ejecuta una migración (`prisma migrate deploy`, `prisma migrate dev`, `prisma db push`).
+- Se ejecuta el seed (`prisma db seed`).
+- Se cambia la variable de entorno `DATABASE_URL` a otra base de datos.
+
+### ¿El build de Vercel aplica migraciones automáticamente?
+
+**No.** El script de build actual es:
+
+```json
+"build": "prisma generate && next build"
+```
+
+Esto genera el cliente Prisma, pero **no ejecuta migraciones**. Si haces push de un cambio que modifica `schema.prisma`, la aplicación puede fallar en runtime porque el esquema de la BD no coincide.
+
+### ¿Cómo aplicar migraciones de forma segura en producción?
+
+Opción recomendada: incluir la migración dentro del build.
+
+Cambia `package.json`:
+
+```json
+"build": "prisma generate && prisma migrate deploy && next build"
+```
+
+`prisma migrate deploy` aplica **solo** las migraciones pendientes y nunca borra datos por sí solo. Es seguro si tus migraciones son aditivas (agregar columnas/tablas), pero revisa siempre el SQL generado antes de subirlo.
+
+También puedes aplicarlas manualmente desde tu terminal conectado a la BD de producción:
+
+```bash
+npx prisma migrate deploy
+```
+
+> Nunca uses `npx prisma db push` ni `npx prisma migrate dev` contra la base de datos de producción. Esos comandos están pensados para desarrollo local.
+
+### ¿Cómo hacer backup antes de una migración importante?
+
+Neon guarda automáticamente el estado de la base de datos. Puedes crear un **branch** o usar **point-in-time restore** desde la consola de Neon antes de aplicar migraciones riesgosas.
+
+Pasos rápidos:
+1. Ve a [console.neon.tech](https://console.neon.tech).
+2. Selecciona tu proyecto y base de datos.
+3. Crea un branch desde el estado actual o usa **Restore** si es necesario.
+
+### ¿Qué pasa si cambio `DATABASE_URL` en Vercel?
+
+La aplicación se conectará a la nueva base de datos. Si apuntas a una BD vacía, deberás volver a ejecutar:
+
+```bash
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+Si apuntas accidentalmente a una URL incorrecta, el deploy fallará o la app no tendrá acceso a los datos anteriores. Por eso se recomienda validar la URL antes de guardar los cambios.
+
+### ¿Un fix de frontend puede afectar la base de datos?
+
+**No.** Si el cambio solo toca archivos dentro de `src/app/`, `src/components/` o `src/lib/` sin modificar Prisma, no hay riesgo para la BD. Ejemplo: el fix que habilita el botón "Siguiente Pregunta" para todos los tipos de pregunta solo cambia la validación del lado del cliente.
